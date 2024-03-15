@@ -1484,7 +1484,7 @@ static int bpf_object__elf_init(struct bpf_object *obj)
 			return err;
 		}
 
-		elf = elf_begin(obj->efile.fd, ELF_C_READ_MMAP, NULL);
+		elf = elf_begin(obj->efile.fd, ELF_C_READ_MMAP, NULL); // 用来打开目标文件并进行elf描述符号的映射,调用了libelf库，libelf.h
 	}
 
 	if (!elf) {
@@ -1495,7 +1495,7 @@ static int bpf_object__elf_init(struct bpf_object *obj)
 
 	obj->efile.elf = elf;
 
-	if (elf_kind(elf) != ELF_K_ELF) {
+	if (elf_kind(elf) != ELF_K_ELF) { // 判断文件是不是elf文件
 		err = -LIBBPF_ERRNO__FORMAT;
 		pr_warn("elf: '%s' is not a proper ELF object\n", obj->path);
 		goto errout;
