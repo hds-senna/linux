@@ -195,7 +195,7 @@ struct {
 	__type(key, __be32);
 	__type(value, struct pair);
 	__uint(max_entries, 1024);
-} hash_map SEC(".maps");
+} hash_map SEC(".maps"); // SEC的定义要放在变量的后面
 
 SEC("socket2")
 int bpf_prog2(struct __sk_buff *skb)
@@ -220,4 +220,5 @@ int bpf_prog2(struct __sk_buff *skb)
 	return 0;
 }
 
-char _license[] SEC("license") = "GPL";
+char _license[] SEC("license") = "GPL"; // 属性修饰符应该放在变量类型声明的后面而不是赋值部分
+// char _license[] = "GPL" SEC("license"); 这种方式不行，原因如上

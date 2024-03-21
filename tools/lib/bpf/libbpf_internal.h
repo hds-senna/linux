@@ -204,7 +204,7 @@ static inline void *libbpf_reallocarray(void *ptr, size_t nmemb, size_t size)
 		return NULL;
 	total = nmemb * size;
 #endif
-	return realloc(ptr, total);
+	return realloc(ptr, total); // 重新分配之前分配的内存空间
 }
 
 /* Copy up to sz - 1 bytes from zero-terminated src string and ensure that dst

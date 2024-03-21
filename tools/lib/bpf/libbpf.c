@@ -336,14 +336,15 @@ const char *libbpf_version_string(void)
 #undef __S
 }
 
+// 表示不同类型的重定位（relocation）操作
 enum reloc_type {
-	RELO_LD64,
-	RELO_CALL,
-	RELO_DATA,
-	RELO_EXTERN_LD64,
-	RELO_EXTERN_CALL,
-	RELO_SUBPROG_ADDR,
-	RELO_CORE,
+	RELO_LD64,        // 表示64位的加载操作，通常用于加载常量或者全局变量
+	RELO_CALL,        // 表示函数调用的重定位，用于在BPF程序中调用其他的BPF程序
+	RELO_DATA,        // 表示数据的重定位，用于在BPF程序中引用其他的数据
+	RELO_EXTERN_LD64, // 表示外部的64位加载操作，用于在BPF程序中加载外部的常量或者全局变量。
+	RELO_EXTERN_CALL, // 表示外部的函数调用的重定位，用于在BPF程序中调用外部的函数。
+	RELO_SUBPROG_ADDR,// 表示子程序地址的重定位，用于在BPF程序中引用子程序的地址
+	RELO_CORE,        // 表示CO-RE（Compile Once, Run Everywhere）的重定位，用于在BPF程序中引用CO-RE的符号
 };
 
 struct reloc_desc {
@@ -401,19 +402,19 @@ struct bpf_sec_def {
  * linux/filter.h.
  */
 struct bpf_program {
-	char *name;
-	char *sec_name;
-	size_t sec_idx;
-	const struct bpf_sec_def *sec_def;
+	char *name; // bpf程序的名字
+	char *sec_name; // 指向包含BPF程序的ELF节的名称字符串
+	size_t sec_idx; // ELF节的索引
+	const struct bpf_sec_def *sec_def; // ELF节的定义
 	/* this program's instruction offset (in number of instructions)
 	 * within its containing ELF section
 	 */
-	size_t sec_insn_off;
+	size_t sec_insn_off; // BPF程序在其所属ELF节中的指令偏移量（以指令数计算）
 	/* number of original instructions in ELF section belonging to this
 	 * program, not taking into account subprogram instructions possible
 	 * appended later during relocation
 	 */
-	size_t sec_insn_cnt;
+	size_t sec_insn_cnt; // ELF节中属于该BPF程序的原始指令数量，不包括在重定位期间可能添加的子程序指令
 	/* Offset (in number of instructions) of the start of instruction
 	 * belonging to this BPF program  within its containing main BPF
 	 * program. For the entry-point (main) BPF program, this is always
@@ -422,22 +423,30 @@ struct bpf_program {
 	 * whether sub-program was already appended to the main program, and
 	 * if yes, at which instruction offset.
 	 */
-	size_t sub_insn_off;
+	/* 该BPF程序在其所属主BPF程序中的指令开始位置的偏移量（以指令数计算）。对于入口点（主）BPF程序，此值始终为零
+	 * 对于子程序，此值在处理和重定位每个主BPF程序之前被重置，并用于确定子程序是否已附加到主程序，并确定子程序附加的指令偏移量
+	*/ 
+	size_t sub_insn_off; 
 
 	/* instructions that belong to BPF program; insns[0] is located at
 	 * sec_insn_off instruction within its ELF section in ELF file, so
 	 * when mapping ELF file instruction index to the local instruction,
 	 * one needs to subtract sec_insn_off; and vice versa.
 	 */
-	struct bpf_insn *insns;
+	// BPF程序通常由多条BPF指令组成，每条指令都由struct bpf_insn表示。为了能够容纳任意数量的指令，bpf_insn被定义为指针数组，
+	// 可以动态地分配和存储多个指令的内存空间。这样的设计使得BPF程序可以灵活地包含不同数量的指令，而不需要提前确定指令数量
+	struct bpf_insn *insns; // 指向数组的指针，指向属于BPF程序的指令数组；insns[0]位于其ELF节中的sec_insn_off指令位置处
+	// 在调用bpf_object__open_file()或类似函数加载BPF程序对象时，会解析ELF文件来获取BPF程序的指令和重定位信息，
+	// 并将这些信息填充到insns和reloc_desc字段中
+
 	/* actual number of instruction in this BPF program's image; for
 	 * entry-point BPF programs this includes the size of main program
 	 * itself plus all the used sub-programs, appended at the end
 	 */
 	size_t insns_cnt;
 
-	struct reloc_desc *reloc_desc;
-	int nr_reloc;
+	struct reloc_desc *reloc_desc; // 数组指针，指向重定位描述符数组
+	int nr_reloc; // 重定位描述符的数量
 
 	/* BPF verifier log settings */
 	char *log_buf;
@@ -525,7 +534,7 @@ struct bpf_map {
 	 * DATASEC information.
 	 */
 	char *real_name;
-	int fd;
+	int fd;  // 文件描述符
 	int sec_idx;
 	size_t sec_offset;
 	int map_ifindex;
@@ -609,36 +618,39 @@ struct module_btf {
 };
 
 enum sec_type {
-	SEC_UNUSED = 0,
-	SEC_RELO,
-	SEC_BSS,
-	SEC_DATA,
-	SEC_RODATA,
-	SEC_ST_OPS,
+	SEC_UNUSED = 0, // 表示未使用的节区。这种类型的节区通常是为了填充或保留而存在，但并不包含实际数据或代码
+	SEC_RELO,       // 表示重定位节区。这种类型的节区用于存储需要进行重定位的数据
+	SEC_BSS,        // 表示 BSS 节区。BSS 节区用于存储未初始化的全局变量和静态变量，其名称来自 "Block Started by Symbol" 的缩写
+	SEC_DATA,       // 表示数据节区。数据节区用于存储已初始化的全局变量和静态变量，包括包含初始化值的变量
+	SEC_RODATA,     // 表示只读数据节区。只读数据节区用于存储只读的全局常量数据，例如字符串常量等
+	SEC_ST_OPS,     // 符号表操作节。这个节包含了用于处理符号表的一些特殊操作
 };
 
+/* elf_sec_desc结构体的主要目的是为了在处理ELF文件时，方便地访问和操作每个节的相关信息
+*/
 struct elf_sec_desc {
-	enum sec_type sec_type;
-	Elf64_Shdr *shdr;
-	Elf_Data *data;
+	enum sec_type sec_type; // elf section的类型
+	Elf64_Shdr *shdr; // 表示elf节头部
+	Elf_Data *data;   // 表示节的数据
 };
 
 struct elf_state {
-	int fd;
-	const void *obj_buf;
-	size_t obj_buf_sz;
-	Elf *elf;
-	Elf64_Ehdr *ehdr;
-	Elf_Data *symbols;
+	int fd;                    // 文件描述符，用于打开和访问 ELF 文件
+	const void *obj_buf;       // 一个指向内存中 ELF 文件内容的指针，如果 ELF 文件内容被加载到内存中，则使用该指针访问内容
+	size_t obj_buf_sz;         // 内存中 ELF 文件内容的大小
+	Elf *elf;                  // 指向一个打开的ELF文件
+	Elf64_Ehdr *ehdr;          // 指向 ELF 文件头部信息（ELF Header）的指针，包含了关于 ELF 文件本身的信息
+	Elf_Data *symbols;         // 用于存储 ELF 文件中的符号表数据，指向符号表节
 	Elf_Data *arena_data;
-	size_t shstrndx; /* section index for section name strings */
-	size_t strtabidx;
-	struct elf_sec_desc *secs;
-	size_t sec_cnt;
-	int btf_maps_shndx;
-	__u32 btf_maps_sec_btf_id;
-	int text_shndx;
-	int symbols_shndx;
+	/* section index for section name strings */
+	size_t shstrndx;           // 字符串节索引，用于快速查找节区（Section）的名称
+	size_t strtabidx;  
+	struct elf_sec_desc *secs; // 一个指向 elf_sec_desc 结构体的数组指针，用于存储 ELF 文件的节区描述信息
+	size_t sec_cnt;            // 节区数量，表示 ELF 文件中节区的总数
+	int btf_maps_shndx;        // .maps节区的索引
+	__u32 btf_maps_sec_btf_id; // BTF 映射节区的 BTF ID
+	int text_shndx;            // 代码段节区的索引
+	int symbols_shndx;         // 符号表节的索引
 	bool has_st_ops;
 	int arena_data_shndx;
 };
@@ -647,10 +659,10 @@ struct usdt_manager;
 
 struct bpf_object {
 	char name[BPF_OBJ_NAME_LEN];
-	char license[64];
-	__u32 kern_version;
+	char license[64];   // bpf程序许可证
+	__u32 kern_version; // 内核版本
 
-	struct bpf_program *programs;
+	struct bpf_program *programs; // 指向BPF程序的指针数组的首地址
 	size_t nr_programs;
 	struct bpf_map *maps;
 	size_t nr_maps;
@@ -665,10 +677,10 @@ struct bpf_object {
 	bool has_subcalls;
 	bool has_rodata;
 
-	struct bpf_gen *gen_loader;
+	struct bpf_gen *gen_loader; // gen_loader 变量的存在是为了支持 BPF 代码的 JIT (Just-In-Time) 编译
 
 	/* Information when doing ELF related work. Only valid if efile.elf is not NULL */
-	struct elf_state efile;
+	struct elf_state efile; // 保存elf格式信息，描述打开的elf的整个信息
 
 	struct btf *btf;
 	struct btf_ext *btf_ext;
@@ -782,13 +794,13 @@ bpf_object__init_prog(struct bpf_object *obj, struct bpf_program *prog,
 	memset(prog, 0, sizeof(*prog));
 	prog->obj = obj;
 
-	prog->sec_idx = sec_idx;
+	prog->sec_idx = sec_idx; // 包含当前bpf程序的节区索引
 	prog->sec_insn_off = sec_off / BPF_INSN_SZ;
 	prog->sec_insn_cnt = insn_data_sz / BPF_INSN_SZ;
 	/* insns_cnt can later be increased by appending used subprograms */
 	prog->insns_cnt = prog->sec_insn_cnt;
 
-	prog->type = BPF_PROG_TYPE_UNSPEC;
+	prog->type = BPF_PROG_TYPE_UNSPEC; // 默认的类型
 	prog->fd = -1;
 	prog->exception_cb_idx = -1;
 
@@ -839,24 +851,27 @@ bpf_object__add_programs(struct bpf_object *obj, Elf_Data *sec_data,
 	size_t sec_sz = sec_data->d_size, sec_off, prog_sz, nr_syms;
 	int nr_progs, err, i;
 	const char *name;
-	Elf64_Sym *sym;
+	Elf64_Sym *sym; // Elf64_Sym是符号表项描述符，包括符号的名称、类型、节表索引、值和大小。
 
 	progs = obj->programs;
-	nr_progs = obj->nr_programs;
-	nr_syms = symbols->d_size / sizeof(Elf64_Sym);
+	nr_progs = obj->nr_programs; 
+	nr_syms = symbols->d_size / sizeof(Elf64_Sym); // 符号表项的数量
 
 	for (i = 0; i < nr_syms; i++) {
 		sym = elf_sym_by_idx(obj, i);
-
+		/* 检查符号关联的节区索引（st_shndx）。如果这个索引不等于当前节的索引（sec_idx），那么它会跳过这个符号，继续处理下一个。
+		 */
 		if (sym->st_shndx != sec_idx)
 			continue;
+		/* 如果符号的类型（st_info）不是STT_FUNC（表示这是一个函数），那么它也会跳过这个符号。
+		 */
 		if (ELF64_ST_TYPE(sym->st_info) != STT_FUNC)
 			continue;
 
 		prog_sz = sym->st_size;
 		sec_off = sym->st_value;
 
-		name = elf_sym_str(obj, sym->st_name);
+		name = elf_sym_str(obj, sym->st_name); // 返回一个指向字符串的指针
 		if (!name) {
 			pr_warn("sec '%s': failed to get symbol name for offset %zu\n",
 				sec_name, sec_off);
@@ -877,7 +892,7 @@ bpf_object__add_programs(struct bpf_object *obj, Elf_Data *sec_data,
 		pr_debug("sec '%s': found program '%s' at insn offset %zu (%zu bytes), code size %zu insns (%zu bytes)\n",
 			 sec_name, name, sec_off / BPF_INSN_SZ, sec_off, prog_sz / BPF_INSN_SZ, prog_sz);
 
-		progs = libbpf_reallocarray(progs, nr_progs + 1, sizeof(*progs));
+		progs = libbpf_reallocarray(progs, nr_progs + 1, sizeof(*progs)); // 重新分配内存空间
 		if (!progs) {
 			/*
 			 * In this case the original obj->programs
@@ -888,10 +903,10 @@ bpf_object__add_programs(struct bpf_object *obj, Elf_Data *sec_data,
 				sec_name, name);
 			return -ENOMEM;
 		}
-		obj->programs = progs;
-
+		obj->programs = progs; // 
 		prog = &progs[nr_progs];
-
+		
+		/* 从节中拷贝bpf指令到obj->prog中 */
 		err = bpf_object__init_prog(obj, prog, name, sec_idx, sec_name,
 					    sec_off, data + sec_off, prog_sz);
 		if (err)
@@ -1407,7 +1422,7 @@ static struct bpf_object *bpf_object__new(const char *path,
 	struct bpf_object *obj;
 	char *end;
 
-	obj = calloc(1, sizeof(struct bpf_object) + strlen(path) + 1);
+	obj = calloc(1, sizeof(struct bpf_object) + strlen(path) + 1); // 将obj结构的内存全部初始化为0
 	if (!obj) {
 		pr_warn("alloc memory failed for %s\n", path);
 		return ERR_PTR(-ENOMEM);
@@ -1424,15 +1439,15 @@ static struct bpf_object *bpf_object__new(const char *path,
 			*end = 0;
 	}
 
-	obj->efile.fd = -1;
+	obj->efile.fd = -1; 
 	/*
 	 * Caller of this function should also call
 	 * bpf_object__elf_finish() after data collection to return
 	 * obj_buf to user. If not, we should duplicate the buffer to
 	 * avoid user freeing them before elf finish.
 	 */
-	obj->efile.obj_buf = obj_buf;
-	obj->efile.obj_buf_sz = obj_buf_sz;
+	obj->efile.obj_buf = obj_buf; // 初始为NULL
+	obj->efile.obj_buf_sz = obj_buf_sz; // 初始为0
 	obj->efile.btf_maps_shndx = -1;
 	obj->kconfig_map_idx = -1;
 
@@ -1459,22 +1474,30 @@ static void bpf_object__elf_finish(struct bpf_object *obj)
 	obj->efile.obj_buf_sz = 0;
 }
 
+/* 打开elf文件，获取elf指针和elf头，保存在bpf对象bpf_object中 */
 static int bpf_object__elf_init(struct bpf_object *obj)
 {
 	Elf64_Ehdr *ehdr;
 	int err = 0;
-	Elf *elf;
+	// Elf代表了一个 ELF 文件的整体结构。通过 Elf 结构体，可以访问和操作 ELF 文件的各个部分，比如 ELF 文件头部信息、节区头部信息、程序头部信息等
+	Elf *elf; // Elf指针被用来表示一个打开的 ELF 文件对象，通过该指针可以进行对 ELF 文件的读取和操作。例如，可以通过 elf_begin 函数来打开一个 ELF 文件，并返回一个指向 Elf 结构体的指针，然后就可以通过这个指针来获取和操作 ELF 文件的相关信息
 
+	/* 检查bpf_object结构体中的elf字段是否已经被初始化。如果已经被初始化，
+	 * 那么可能是一个内部错误，函数会返回一个错误码。
+	 */
 	if (obj->efile.elf) {
 		pr_warn("elf: init internal error\n");
 		return -LIBBPF_ERRNO__LIBELF;
 	}
 
+	/* 如果bpf_object结构体中的obj_buf_sz字段大于0，那么说明eBPF对象是从内存中加载的，
+	 * 这时候会使用elf_memory函数从内存中创建一个ELF对象 
+	 */
 	if (obj->efile.obj_buf_sz > 0) {
 		/* obj_buf should have been validated by bpf_object__open_mem(). */
 		elf = elf_memory((char *)obj->efile.obj_buf, obj->efile.obj_buf_sz);
-	} else {
-		obj->efile.fd = open(obj->path, O_RDONLY | O_CLOEXEC);
+	} else { // 否则，会使用open和elf_begin函数打开和读取一个ELF文件。
+		obj->efile.fd = open(obj->path, O_RDONLY | O_CLOEXEC); // 调用open系统调用打开ELF文件
 		if (obj->efile.fd < 0) {
 			char errmsg[STRERR_BUFSIZE], *cp;
 
@@ -1484,6 +1507,9 @@ static int bpf_object__elf_init(struct bpf_object *obj)
 			return err;
 		}
 
+		/* 核心代码 */
+		/* elf_begin 函数来打开一个 ELF 文件，并返回一个指向 Elf 结构体的指针，然后就可以通过这个指针来获取和操作 ELF 文件的相关信息 
+		 */
 		elf = elf_begin(obj->efile.fd, ELF_C_READ_MMAP, NULL); // 用来打开目标文件并进行elf描述符号的映射,调用了libelf库，libelf.h
 	}
 
@@ -1492,8 +1518,8 @@ static int bpf_object__elf_init(struct bpf_object *obj)
 		err = -LIBBPF_ERRNO__LIBELF;
 		goto errout;
 	}
-
-	obj->efile.elf = elf;
+	/* 核心代码 */
+	obj->efile.elf = elf; // 将elf结构的指针保存在bpf_object中
 
 	if (elf_kind(elf) != ELF_K_ELF) { // 判断文件是不是elf文件
 		err = -LIBBPF_ERRNO__FORMAT;
@@ -1506,8 +1532,8 @@ static int bpf_object__elf_init(struct bpf_object *obj)
 		pr_warn("elf: '%s' is not a 64-bit ELF object\n", obj->path);
 		goto errout;
 	}
-
-	obj->efile.ehdr = ehdr = elf64_getehdr(elf);
+	/* 核心代码 */
+	obj->efile.ehdr = ehdr = elf64_getehdr(elf); // 获取elf头的指针
 	if (!obj->efile.ehdr) {
 		pr_warn("elf: failed to get ELF header from %s: %s\n", obj->path, elf_errmsg(-1));
 		err = -LIBBPF_ERRNO__FORMAT;
@@ -1545,10 +1571,10 @@ errout:
 static int bpf_object__check_endianness(struct bpf_object *obj)
 {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	if (obj->efile.ehdr->e_ident[EI_DATA] == ELFDATA2LSB)
+	if (obj->efile.ehdr->e_ident[EI_DATA] == ELFDATA2LSB) // 小端序
 		return 0;
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	if (obj->efile.ehdr->e_ident[EI_DATA] == ELFDATA2MSB)
+	if (obj->efile.ehdr->e_ident[EI_DATA] == ELFDATA2MSB) // 大端序
 		return 0;
 #else
 # error "Unrecognized __BYTE_ORDER__"
@@ -1838,7 +1864,7 @@ bpf_object__init_internal_map(struct bpf_object *obj, enum libbpf_map_type type,
 	size_t mmap_sz;
 	int err;
 
-	map = bpf_object__add_map(obj);
+	map = --(obj);
 	if (IS_ERR(map))
 		return PTR_ERR(map);
 
@@ -3533,7 +3559,7 @@ static const char *elf_sec_str(const struct bpf_object *obj, size_t off)
 {
 	const char *name;
 
-	name = elf_strptr(obj->efile.elf, obj->efile.shstrndx, off);
+	name = elf_strptr(obj->efile.elf, obj->efile.shstrndx, off); // shstrndx表示节头字符串表的索引，off是指定要获取的字符串在字符串表中的位置
 	if (!name) {
 		pr_warn("elf: failed to get section name string at offset %zu from %s: %s\n",
 			off, obj->path, elf_errmsg(-1));
@@ -3582,7 +3608,7 @@ static Elf64_Shdr *elf_sec_hdr(const struct bpf_object *obj, Elf_Scn *scn)
 	if (!scn)
 		return NULL;
 
-	shdr = elf64_getshdr(scn);
+	shdr = elf64_getshdr(scn); // 获取节头Elf64_Shdr的地址
 	if (!shdr) {
 		pr_warn("elf: failed to get section(%zu) header from %s: %s\n",
 			elf_ndxscn(scn), obj->path, elf_errmsg(-1));
@@ -3621,7 +3647,8 @@ static Elf_Data *elf_sec_data(const struct bpf_object *obj, Elf_Scn *scn)
 	if (!scn)
 		return NULL;
 
-	data = elf_getdata(scn, 0);
+	// 获取指定的ELF节(section)的数据区(Scn_Data)地址，
+	data = elf_getdata(scn, 0); // 第二个参数是数据区地址，如果不为空，则返回当前地址的下一个数据区地址。如果为空，则返回第一个数据区的地址
 	if (!data) {
 		pr_warn("elf: failed to get section(%zu) %s data from %s: %s\n",
 			elf_ndxscn(scn), elf_sec_name(obj, scn) ?: "<?>",
@@ -3708,48 +3735,55 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 	Elf_Data *btf_data = NULL;
 	int idx = 0, err = 0;
 	const char *name;
-	Elf_Data *data;
-	Elf_Scn *scn;
-	Elf64_Shdr *sh;
+	Elf_Data *data; 
+	/* Elf_Scn结构包含了节的所有信息，包括节的类型、标志、地址、大小等。
+	 * 它还包含了一个指向 Elf64_Shdr 结构的指针，这个结构包含了更详细的节信息，如节的名字、偏移量、对齐方式等
+	 */
+	// Elf_Scn就是节描述符，Elf结构中有两个指针，分别指向第一个节和最后一个节
+	Elf_Scn *scn; // 指向 ELF 文件中的 section 的指针，在 ELF 文件格式中，section 用于组织和存储程序的数据， 比如代码、数据、符号表等。
+		      // 通过这个指针，可以访问和操作 ELF 文件中的特定 section，例如读取 section 的内容或者修改 section 的属性等操作
+	Elf64_Shdr *sh; // ELF文件的section header，
 
 	/* ELF section indices are 0-based, but sec #0 is special "invalid"
 	 * section. Since section count retrieved by elf_getshdrnum() does
 	 * include sec #0, it is already the necessary size of an array to keep
 	 * all the sections.
 	 */
-	if (elf_getshdrnum(obj->efile.elf, &obj->efile.sec_cnt)) {
+	// elf的节是从0开始索引，但是section 0节是无效的节，不会保存有用的数据，而efile.sec_cnt会包含section 0节
+	if (elf_getshdrnum(obj->efile.elf, &obj->efile.sec_cnt)) { // 根据elf指针获取节区的数量，保存在obj->efile.sec_cnt
 		pr_warn("elf: failed to get the number of sections for %s: %s\n",
 			obj->path, elf_errmsg(-1));
 		return -LIBBPF_ERRNO__FORMAT;
 	}
-	obj->efile.secs = calloc(obj->efile.sec_cnt, sizeof(*obj->efile.secs));
-	if (!obj->efile.secs)
+	// 为elf节描述符的数组分配空间，并让efile.secs指针指向内存地址处
+	obj->efile.secs = calloc(obj->efile.sec_cnt, sizeof(*obj->efile.secs)); // 分配内存并将全部内存初始化为零
+	if (!obj->efile.secs) 
 		return -ENOMEM;
 
 	/* a bunch of ELF parsing functionality depends on processing symbols,
 	 * so do the first pass and find the symbol table
 	 */
-	scn = NULL;
-	while ((scn = elf_nextscn(elf, scn)) != NULL) {
-		sh = elf_sec_hdr(obj, scn);
+	scn = NULL; 
+	while ((scn = elf_nextscn(elf, scn)) != NULL) { // 如果scn为空，则返回第一个节的地址，否则返回当前节的下一个节的地址
+		sh = elf_sec_hdr(obj, scn); // 找的节的节头地址，然后判断节类型
 		if (!sh)
 			return -LIBBPF_ERRNO__FORMAT;
-
-		if (sh->sh_type == SHT_SYMTAB) {
-			if (obj->efile.symbols) {
+		// 判断这个节头的节类型是不是符号表类型
+		if (sh->sh_type == SHT_SYMTAB) { // SHT_SYMTAB是ELF文件格式中的一个节类型，它代表一个符号表节
+			if (obj->efile.symbols) { // symbols直接指向符号表节的数据区，在此之前还没有进行赋值，此时应该为空，否则会存在两个符号表节，直接报错
 				pr_warn("elf: multiple symbol tables in %s\n", obj->path);
 				return -LIBBPF_ERRNO__FORMAT;
 			}
 
-			data = elf_sec_data(obj, scn);
+			data = elf_sec_data(obj, scn); // 返回符号表节第一个数据区的地址
 			if (!data)
 				return -LIBBPF_ERRNO__FORMAT;
 
-			idx = elf_ndxscn(scn);
+			idx = elf_ndxscn(scn); // 获得这个节的索引
 
-			obj->efile.symbols = data;
-			obj->efile.symbols_shndx = idx;
-			obj->efile.strtabidx = sh->sh_link;
+			obj->efile.symbols = data; // 此时才将符号表第一个数据区的地址赋值给
+			obj->efile.symbols_shndx = idx; // 符号表节的索引
+			obj->efile.strtabidx = sh->sh_link; // 与符号表相关的另一个节的索引
 		}
 	}
 
@@ -3767,15 +3801,15 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 		sh = elf_sec_hdr(obj, scn);
 		if (!sh)
 			return -LIBBPF_ERRNO__FORMAT;
-
-		name = elf_sec_str(obj, sh->sh_name);
+		// 获取节名字
+		name = elf_sec_str(obj, sh->sh_name); // sh_name是节名在字符串表中的索引
 		if (!name)
 			return -LIBBPF_ERRNO__FORMAT;
 
-		if (ignore_elf_section(sh, name))
+		if (ignore_elf_section(sh, name)) // 不需要处理的节，直接跳过
 			continue;
 
-		data = elf_sec_data(obj, scn);
+		data = elf_sec_data(obj, scn); // 获取节的数据区地址
 		if (!data)
 			return -LIBBPF_ERRNO__FORMAT;
 
@@ -3784,18 +3818,18 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 			 (int)sh->sh_link, (unsigned long)sh->sh_flags,
 			 (int)sh->sh_type);
 
-		if (strcmp(name, "license") == 0) {
-			err = bpf_object__init_license(obj, data->d_buf, data->d_size);
+		if (strcmp(name, "license") == 0) { // 如果节的名字是license,
+			err = bpf_object__init_license(obj, data->d_buf, data->d_size); // 从license节中把许可证信息拷贝到obj->license
 			if (err)
 				return err;
-		} else if (strcmp(name, "version") == 0) {
+		} else if (strcmp(name, "version") == 0) { // 从version的节中把内核版本拷贝到obj->kern_version
 			err = bpf_object__init_kversion(obj, data->d_buf, data->d_size);
 			if (err)
 				return err;
 		} else if (strcmp(name, "maps") == 0) {
 			pr_warn("elf: legacy map definitions in 'maps' section are not supported by libbpf v1.0+\n");
 			return -ENOTSUP;
-		} else if (strcmp(name, MAPS_ELF_SEC) == 0) {
+		} else if (strcmp(name, MAPS_ELF_SEC) == 0) { // .maps的宏表示
 			obj->efile.btf_maps_shndx = idx;
 		} else if (strcmp(name, BTF_ELF_SEC) == 0) {
 			if (sh->sh_type != SHT_PROGBITS)
@@ -3809,7 +3843,7 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 			/* already processed during the first pass above */
 		} else if (sh->sh_type == SHT_PROGBITS && data->d_size > 0) {
 			if (sh->sh_flags & SHF_EXECINSTR) {
-				if (strcmp(name, ".text") == 0)
+				if (strcmp(name, ".text") == 0) // 代码节
 					obj->efile.text_shndx = idx;
 				err = bpf_object__add_programs(obj, data, name, idx);
 				if (err)
@@ -5933,13 +5967,17 @@ static void poison_kfunc_call(struct bpf_program *prog, int relo_idx,
 	insn->imm = POISON_CALL_KFUNC_BASE + ext_idx;
 }
 
+/* 在处理这些引用时，函数会根据引用的类型和其他上下文信息，更新相应的BPF指令。
+ * 例如，对于映射引用，函数会更新指令的源寄存器和立即数；
+ * 对于外部引用，函数会更新指令的源寄存器、立即数和偏移量等。
+ */
 /* Relocate data references within program code:
  *  - map references;
  *  - global variable references;
  *  - extern references.
  */
 static int
-bpf_object__relocate_data(struct bpf_object *obj, struct bpf_program *prog)
+bpf_object__relocate_data(struct bpf_object *obj, struct bpf_program *prog) // 位于loader层
 {
 	int i;
 
@@ -5950,7 +5988,7 @@ bpf_object__relocate_data(struct bpf_object *obj, struct bpf_program *prog)
 		struct extern_desc *ext;
 
 		switch (relo->type) {
-		case RELO_LD64:
+		case RELO_LD64: // 表示64位的加载操作，通常用于加载常量或者全局变量。
 			map = &obj->maps[relo->map_idx];
 			if (obj->gen_loader) {
 				insn[0].src_reg = BPF_PSEUDO_MAP_IDX;
@@ -5963,7 +6001,7 @@ bpf_object__relocate_data(struct bpf_object *obj, struct bpf_program *prog)
 						   relo->map_idx, map);
 			}
 			break;
-		case RELO_DATA:
+		case RELO_DATA: // 表示数据的重定位，用于在BPF程序中引用其他的数据
 			map = &obj->maps[relo->map_idx];
 			insn[1].imm = insn[0].imm + relo->sym_off;
 			if (obj->gen_loader) {
@@ -5977,7 +6015,7 @@ bpf_object__relocate_data(struct bpf_object *obj, struct bpf_program *prog)
 						   relo->map_idx, map);
 			}
 			break;
-		case RELO_EXTERN_LD64:
+		case RELO_EXTERN_LD64: // 表示外部的64位加载操作，用于在BPF程序中加载外部的常量或者全局变量
 			ext = &obj->externs[relo->ext_idx];
 			if (ext->type == EXT_KCFG) {
 				if (obj->gen_loader) {
@@ -5999,7 +6037,7 @@ bpf_object__relocate_data(struct bpf_object *obj, struct bpf_program *prog)
 				}
 			}
 			break;
-		case RELO_EXTERN_CALL:
+		case RELO_EXTERN_CALL: // 表示外部的函数调用的重定位，用于在BPF程序中调用外部的函数
 			ext = &obj->externs[relo->ext_idx];
 			insn[0].src_reg = BPF_PSEUDO_KFUNC_CALL;
 			if (ext->is_set) {
@@ -6010,7 +6048,7 @@ bpf_object__relocate_data(struct bpf_object *obj, struct bpf_program *prog)
 						  relo->ext_idx, ext);
 			}
 			break;
-		case RELO_SUBPROG_ADDR:
+		case RELO_SUBPROG_ADDR: // 表示子程序地址的重定位，用于在BPF程序中引用子程序的地址
 			if (insn[0].src_reg != BPF_PSEUDO_FUNC) {
 				pr_warn("prog '%s': relo #%d: bad insn\n",
 					prog->name, i);
@@ -6018,10 +6056,10 @@ bpf_object__relocate_data(struct bpf_object *obj, struct bpf_program *prog)
 			}
 			/* handled already */
 			break;
-		case RELO_CALL:
+		case RELO_CALL: // 表示函数调用的重定位，用于在BPF程序中调用其他的BPF程序
 			/* handled already */
 			break;
-		case RELO_CORE:
+		case RELO_CORE: // 表示CO-RE（Compile Once, Run Everywhere）的重定位，用于在BPF程序中引用CO-RE的符号
 			/* will be handled by bpf_program_record_relos() */
 			break;
 		default:
@@ -6963,7 +7001,7 @@ static int bpf_object__relocate(struct bpf_object *obj, const char *targ_btf_pat
 		if (!prog->autoload)
 			continue;
 
-		err = bpf_object__relocate_calls(obj, prog);
+		err = bpf_object__relocate_calls(obj, prog); // 重定位函数
 		if (err) {
 			pr_warn("prog '%s': failed to relocate calls: %d\n",
 				prog->name, err);
@@ -7000,7 +7038,7 @@ static int bpf_object__relocate(struct bpf_object *obj, const char *targ_btf_pat
 			continue;
 
 		/* Process data relos for main programs */
-		err = bpf_object__relocate_data(obj, prog);
+		err = bpf_object__relocate_data(obj, prog); // 重定位数据
 		if (err) {
 			pr_warn("prog '%s': failed to relocate data references: %d\n",
 				prog->name, err);
@@ -7853,7 +7891,7 @@ static struct bpf_object *bpf_object_open(const char *path, const void *obj_buf,
 	if (token_path && strlen(token_path) >= PATH_MAX)
 		return ERR_PTR(-ENAMETOOLONG);
 
-	obj = bpf_object__new(path, obj_buf, obj_buf_sz, obj_name);
+	obj = bpf_object__new(path, obj_buf, obj_buf_sz, obj_name); // 为obj结构分配内存，并将obj指针指向的内存全部被初始化为0
 	if (IS_ERR(obj))
 		return obj;
 
@@ -7891,11 +7929,14 @@ static struct bpf_object *bpf_object_open(const char *path, const void *obj_buf,
 		}
 	}
 
-	err = bpf_object__elf_init(obj);
-	err = err ? : bpf_object__check_endianness(obj);
+	err = bpf_object__elf_init(obj); // 打开elf文件，获取elf指针和elf头保存在bpf_object中
+	err = err ? : bpf_object__check_endianness(obj); // 检查字节序
 	err = err ? : bpf_object__elf_collect(obj);
 	err = err ? : bpf_object__collect_externs(obj);
 	err = err ? : bpf_object_fixup_btf(obj);
+	/* 在BPF程序加载到内核之前，需要先创建并初始化BPF映射。bpf_object__init_maps函数就是用来完成这个任务的。
+	 * 它会遍历BPF对象中的所有BPF映射，为每个BPF映射分配内存并初始化。
+	 */
 	err = err ? : bpf_object__init_maps(obj, opts);
 	err = err ? : bpf_object_init_progs(obj, opts);
 	err = err ? : bpf_object__collect_relos(obj);

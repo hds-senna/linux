@@ -125,13 +125,15 @@ typedef __s64	Elf64_Sxword;
 #define STB_GLOBAL 1
 #define STB_WEAK   2
 
-#define STT_NOTYPE  0
-#define STT_OBJECT  1
-#define STT_FUNC    2
-#define STT_SECTION 3
-#define STT_FILE    4
-#define STT_COMMON  5
-#define STT_TLS     6
+/* 文件格式中的符号类型（Symbol Type）定义。在ELF文件中，符号表（Symbol Table）包含了程序中使用的所有符号的信息，包括函数、变量、类型等。
+ */
+#define STT_NOTYPE  0 // 表示符号没有特定的类型
+#define STT_OBJECT  1 // 符号是一个数据对象，如变量、数组等
+#define STT_FUNC    2 // 符号是一个函数或可执行代码
+#define STT_SECTION 3 // 表示符号是一个节（Section）
+#define STT_FILE    4 // 表示符号是一个文件名
+#define STT_COMMON  5 // 表示符号是一个未初始化的共享内存区域
+#define STT_TLS     6 // 表示符号是一个线程局部存储（Thread-Local Storage）变量
 
 #define ELF_ST_BIND(x)		((x) >> 4)
 #define ELF_ST_TYPE(x)		((x) & 0xf)
