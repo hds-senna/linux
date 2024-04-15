@@ -403,7 +403,7 @@ struct bpf_sec_def {
  */
 struct bpf_program {
 	char *name; // bpf程序的名字
-	char *sec_name; // 指向包含BPF程序的ELF节的名称字符串
+	char *sec_name; // 指向包含BPF程序的ELF节名
 	size_t sec_idx; // ELF节的索引
 	const struct bpf_sec_def *sec_def; // ELF节的定义
 	/* this program's instruction offset (in number of instructions)
@@ -510,11 +510,11 @@ struct bpf_struct_ops {
 #define ARENA_SEC ".arena.1"
 
 enum libbpf_map_type {
-	LIBBPF_MAP_UNSPEC,
-	LIBBPF_MAP_DATA,
-	LIBBPF_MAP_BSS,
-	LIBBPF_MAP_RODATA,
-	LIBBPF_MAP_KCONFIG,
+	LIBBPF_MAP_UNSPEC, // 未指定的映射类型。
+	LIBBPF_MAP_DATA,   // 数据映射，用于存储程序运行时的数据
+	LIBBPF_MAP_BSS,    // BSS段映射，用于存储未初始化的全局变量
+	LIBBPF_MAP_RODATA, // 只读数据段映射，用于存储只读数据
+	LIBBPF_MAP_KCONFIG,// 内核配置映射，用于存储内核配置信息
 };
 
 struct bpf_map_def {
@@ -525,16 +525,16 @@ struct bpf_map_def {
 	unsigned int map_flags;
 };
 
-struct bpf_map {
+struct bpf_map { // 描述map的结构
 	struct bpf_object *obj;
-	char *name;
+	char *name; // map的名字
 	/* real_name is defined for special internal maps (.rodata*,
 	 * .data*, .bss, .kconfig) and preserves their original ELF section
 	 * name. This is important to be able to find corresponding BTF
 	 * DATASEC information.
 	 */
-	char *real_name;
-	int fd;  // 文件描述符
+	char *real_name; // 保存ELF的一些特殊节，例如.data、.rodata、.bss等。这是因为bpf_map被用在了两个地方，一个是保存.BTF节中的bpf map的数据，另一个是保存ELF的特殊段数据比如.data等。所以bpf_map不要简单理解为专门用于描述bpf的map的，它其实描述的是一片内存空间，这片内存可以存不同的东西。
+	int fd;  // 匿名内存的文件描述符
 	int sec_idx;
 	size_t sec_offset;
 	int map_ifindex;
@@ -547,21 +547,23 @@ struct bpf_map {
 	__u32 btf_value_type_id;
 	__u32 btf_vmlinux_value_type_id;
 	enum libbpf_map_type libbpf_type;
-	void *mmaped;
+	void *mmaped;    // 指向保存.arena.1节数据，或者.data数据、.rodata数据、.bss数据的内存，这些数据都是从ELF中的这些节中拷贝过来的　　　　　　　　　　                                        
 	struct bpf_struct_ops *st_ops;
-	struct bpf_map *inner_map;
+	struct bpf_map *inner_map;  // 指向map-in-map的内层map
 	void **init_slots;
 	int init_slots_sz;
-	char *pin_path;
+	char *pin_path;  // pin住的map的路径，默认为/sys/fs/bpf 
 	bool pinned;
 	bool reused;
 	bool autocreate;
 	__u64 map_extra;
 };
 
-enum extern_type {
+/* 描述外部符号的属性和信息
+ */
+enum extern_type { 
 	EXT_UNKNOWN,
-	EXT_KCFG,
+	EXT_KCFG, // 
 	EXT_KSYM,
 };
 
@@ -574,23 +576,24 @@ enum kcfg_type {
 	KCFG_CHAR_ARR,
 };
 
-struct extern_desc {
-	enum extern_type type;
-	int sym_idx;
+// 外部符号描述符，例如内核函数符号
+struct extern_desc {  
+	enum extern_type type; // 外部符号的类型
+	int sym_idx;           // 符号描述符在ELF符号表中的索引     
 	int btf_id;
 	int sec_btf_id;
 	const char *name;
 	char *essent_name;
 	bool is_set;
-	bool is_weak;
-	union {
+	bool is_weak;       // 符号是不是弱绑定
+	union {                               // 通过联合（union）的方式，根据外部符号的类型存储不同的额外信息
 		struct {
 			enum kcfg_type type;
 			int sz;
 			int align;
 			int data_off;
 			bool is_signed;
-		} kcfg;
+		} kcfg;                       // 如果符号类型是 kcfg，则存储与配置相关的数据
 		struct {
 			unsigned long long addr;
 
@@ -605,7 +608,7 @@ struct extern_desc {
 			 * BTF
 			 */
 			__s16 btf_fd_idx;
-		} ksym;
+		} ksym;                       // 如果符号类型是 ksym，则存储与内核符号相关的数据
 	};
 };
 
@@ -631,7 +634,7 @@ enum sec_type {
 struct elf_sec_desc {
 	enum sec_type sec_type; // elf section的类型
 	Elf64_Shdr *shdr; // 表示elf节头部
-	Elf_Data *data;   // 表示节的数据
+	Elf_Data *data;   // 表示节的数据区
 };
 
 struct elf_state {
@@ -640,19 +643,19 @@ struct elf_state {
 	size_t obj_buf_sz;         // 内存中 ELF 文件内容的大小
 	Elf *elf;                  // 指向一个打开的ELF文件
 	Elf64_Ehdr *ehdr;          // 指向 ELF 文件头部信息（ELF Header）的指针，包含了关于 ELF 文件本身的信息
-	Elf_Data *symbols;         // 用于存储 ELF 文件中的符号表数据，指向符号表节
-	Elf_Data *arena_data;
+	Elf_Data *symbols;         // 指向符号表节的数据区，符号表节存储有当前ELF文件中的所有符号，包括常见的变量，函数
+	Elf_Data *arena_data;      // .arena.1节数据区地址
 	/* section index for section name strings */
-	size_t shstrndx;           // 字符串节索引，用于快速查找节区（Section）的名称
+	size_t shstrndx;           // 节名字符串表(.shstrtab )的索引，用于快速查找节区（Section）的名称
 	size_t strtabidx;  
-	struct elf_sec_desc *secs; // 一个指向 elf_sec_desc 结构体的数组指针，用于存储 ELF 文件的节区描述信息
+	struct elf_sec_desc *secs; // 一个指向 elf_sec_desc 结构体的数组指针，用于存储 ELF 文件的节区描述信息, 如节类型
 	size_t sec_cnt;            // 节区数量，表示 ELF 文件中节区的总数
-	int btf_maps_shndx;        // .maps节区的索引
-	__u32 btf_maps_sec_btf_id; // BTF 映射节区的 BTF ID
+	int btf_maps_shndx;        // .maps节区的索引（ELF节区索引）
+	__u32 btf_maps_sec_btf_id; // .maps类型的btf_type在.BTF的type section的索引
 	int text_shndx;            // 代码段节区的索引
 	int symbols_shndx;         // 符号表节的索引
 	bool has_st_ops;
-	int arena_data_shndx;
+	int arena_data_shndx;      // .arena.1节在ELF节中的索引
 };
 
 struct usdt_manager;
@@ -663,13 +666,13 @@ struct bpf_object {
 	__u32 kern_version; // 内核版本
 
 	struct bpf_program *programs; // 指向BPF程序的指针数组的首地址
-	size_t nr_programs;
-	struct bpf_map *maps;
-	size_t nr_maps;
+	size_t nr_programs;    
+	struct bpf_map *maps; // 指向map结构体数组的指针，每个bpf_map里包含了一个匿名内存文件描述符fd
+	size_t nr_maps;       // map的数量
 	size_t maps_cap;
 
 	char *kconfig;
-	struct extern_desc *externs;
+	struct extern_desc *externs;   // 指向外部符号(extern sym)描述符的结构体数组
 	int nr_extern;
 	int kconfig_map_idx;
 
@@ -680,10 +683,10 @@ struct bpf_object {
 	struct bpf_gen *gen_loader; // gen_loader 变量的存在是为了支持 BPF 代码的 JIT (Just-In-Time) 编译
 
 	/* Information when doing ELF related work. Only valid if efile.elf is not NULL */
-	struct elf_state efile; // 保存elf格式信息，描述打开的elf的整个信息
+	struct elf_state efile;  // 保存elf格式信息，描述打开的elf的整个信息
 
-	struct btf *btf;
-	struct btf_ext *btf_ext;
+	struct btf *btf;         // 描述.BTF节的布局
+	struct btf_ext *btf_ext; // 描述.BTF.ext节，用于表示BTF扩展信息
 
 	/* Parse and load BTF vmlinux if any of the programs in the object need
 	 * it at load time.
@@ -712,9 +715,9 @@ struct bpf_object {
 
 	struct usdt_manager *usdt_man;
 
-	struct bpf_map *arena_map;
-	void *arena_data;
-	size_t arena_data_sz;
+	struct bpf_map *arena_map; // BPF_MAP_TYPE_ARENA类型的map, 允许BPF程序在内核中创建一个共享的内存区域，可以在用户态和内核态之间进行直接的读写操作
+	void *arena_data;          // 存储.arena.1节数据的内存起始地址
+	size_t arena_data_sz;      // .arena.1节的数据长度
 
 	struct kern_feature_cache *feat_cache;
 	char *token_path;
@@ -845,33 +848,33 @@ static int
 bpf_object__add_programs(struct bpf_object *obj, Elf_Data *sec_data,
 			 const char *sec_name, int sec_idx)
 {
-	Elf_Data *symbols = obj->efile.symbols;
+	Elf_Data *symbols = obj->efile.symbols; // 符号表节数据区的地址
 	struct bpf_program *prog, *progs;
-	void *data = sec_data->d_buf;
+	void *data = sec_data->d_buf; // 节数据区的地址
 	size_t sec_sz = sec_data->d_size, sec_off, prog_sz, nr_syms;
 	int nr_progs, err, i;
 	const char *name;
 	Elf64_Sym *sym; // Elf64_Sym是符号表项描述符，包括符号的名称、类型、节表索引、值和大小。
 
-	progs = obj->programs;
-	nr_progs = obj->nr_programs; 
+	progs = obj->programs; // 此时progs和nr_progs都是空的，还没有被赋值过
+	nr_progs = obj->nr_programs; // nr_progs
 	nr_syms = symbols->d_size / sizeof(Elf64_Sym); // 符号表项的数量
 
 	for (i = 0; i < nr_syms; i++) {
-		sym = elf_sym_by_idx(obj, i);
+		sym = elf_sym_by_idx(obj, i); // 遍历符号表的每个符号描述符，找到属于当前节的符号描述符，
 		/* 检查符号关联的节区索引（st_shndx）。如果这个索引不等于当前节的索引（sec_idx），那么它会跳过这个符号，继续处理下一个。
 		 */
-		if (sym->st_shndx != sec_idx)
+		if (sym->st_shndx != sec_idx) // 判断符号是不是属于当前节的
 			continue;
 		/* 如果符号的类型（st_info）不是STT_FUNC（表示这是一个函数），那么它也会跳过这个符号。
 		 */
 		if (ELF64_ST_TYPE(sym->st_info) != STT_FUNC)
 			continue;
 
-		prog_sz = sym->st_size;
-		sec_off = sym->st_value;
+		prog_sz = sym->st_size;  // bpf函数名对应的函数体的大小，符号表中的函数符号会有关联大小，表示这个函数的函数体的大小
+		sec_off = sym->st_value; // st_value 表示从 st_shndx所标识的节的起始位置的偏移，此时表示bpf函数在节中的起始位置
 
-		name = elf_sym_str(obj, sym->st_name); // 返回一个指向字符串的指针
+		name = elf_sym_str(obj, sym->st_name); // 返回一个指向字符串的指针，此时为bpf函数的名字
 		if (!name) {
 			pr_warn("sec '%s': failed to get symbol name for offset %zu\n",
 				sec_name, sec_off);
@@ -892,7 +895,7 @@ bpf_object__add_programs(struct bpf_object *obj, Elf_Data *sec_data,
 		pr_debug("sec '%s': found program '%s' at insn offset %zu (%zu bytes), code size %zu insns (%zu bytes)\n",
 			 sec_name, name, sec_off / BPF_INSN_SZ, sec_off, prog_sz / BPF_INSN_SZ, prog_sz);
 
-		progs = libbpf_reallocarray(progs, nr_progs + 1, sizeof(*progs)); // 重新分配内存空间
+		progs = libbpf_reallocarray(progs, nr_progs + 1, sizeof(*progs)); // 重新分配内存空间，每增加一个prog，则在之前分配的内存上再新分配一个prog内存
 		if (!progs) {
 			/*
 			 * In this case the original obj->programs
@@ -903,8 +906,8 @@ bpf_object__add_programs(struct bpf_object *obj, Elf_Data *sec_data,
 				sec_name, name);
 			return -ENOMEM;
 		}
-		obj->programs = progs; // 
-		prog = &progs[nr_progs];
+		obj->programs = progs;  // 更新obj->programs指针
+		prog = &progs[nr_progs];// 当前prog的地址
 		
 		/* 从节中拷贝bpf指令到obj->prog中 */
 		err = bpf_object__init_prog(obj, prog, name, sec_idx, sec_name,
@@ -1508,7 +1511,8 @@ static int bpf_object__elf_init(struct bpf_object *obj)
 		}
 
 		/* 核心代码 */
-		/* elf_begin 函数来打开一个 ELF 文件，并返回一个指向 Elf 结构体的指针，然后就可以通过这个指针来获取和操作 ELF 文件的相关信息 
+		/* elf_begin 函数来打开一个 ELF 文件，并返回一个指向 Elf 结构体的指针，然后就可以通过这个指针来获取和操作 ELF 文件的相关信息
+		 * elf格式的所有信息在elf_begin()的过程中被解析，并且返回一个指向elf的指针，通过该指针即可访问所有ELF格式的节信息 
 		 */
 		elf = elf_begin(obj->efile.fd, ELF_C_READ_MMAP, NULL); // 用来打开目标文件并进行elf描述符号的映射,调用了libelf库，libelf.h
 	}
@@ -1540,7 +1544,7 @@ static int bpf_object__elf_init(struct bpf_object *obj)
 		goto errout;
 	}
 
-	if (elf_getshdrstrndx(elf, &obj->efile.shstrndx)) {
+	if (elf_getshdrstrndx(elf, &obj->efile.shstrndx)) { // 保存节名字符串表的索引，用于快速查找节名
 		pr_warn("elf: failed to get section names section index for %s: %s\n",
 			obj->path, elf_errmsg(-1));
 		err = -LIBBPF_ERRNO__FORMAT;
@@ -1671,9 +1675,9 @@ static Elf64_Sym *find_elf_var_sym(const struct bpf_object *obj, const char *nam
  * implementation, so avoid complications and just go straight to Linux
  * syscall.
  */
-static int sys_memfd_create(const char *name, unsigned flags)
+static int sys_memfd_create(const char *name, unsigned flags) // 返回一个“匿名”内存“文件”的fd，而它本身并没有实体的文件系统路径
 {
-	return syscall(__NR_memfd_create, name, flags);
+	return syscall(__NR_memfd_create, name, flags); // 创建一个匿名的内存文件描述符，这个特殊的文件不会对应于任何磁盘上的物理文件，而是存储在内存中
 }
 
 static int create_placeholder_fd(void)
@@ -1696,7 +1700,7 @@ static struct bpf_map *bpf_object__add_map(struct bpf_object *obj)
 	if (err)
 		return ERR_PTR(err);
 
-	map = &obj->maps[obj->nr_maps++];
+	map = &obj->maps[obj->nr_maps++]; // 创建bpf_map结构体数组
 	map->obj = obj;
 	/* Preallocate map FD without actually creating BPF map just yet.
 	 * These map FD "placeholders" will be reused later without changing
@@ -1710,7 +1714,7 @@ static struct bpf_map *bpf_object__add_map(struct bpf_object *obj)
 	 * the sanitizations, relocations, and any other adjustments before we
 	 * start creating actual BPF kernel objects (BTF, maps, progs).
 	 */
-	map->fd = create_placeholder_fd();
+	map->fd = create_placeholder_fd(); // 创建一个匿名的内存文件描述符
 	if (map->fd < 0)
 		return ERR_PTR(map->fd);
 	map->inner_map_fd = -1;
@@ -1863,7 +1867,17 @@ bpf_object__init_internal_map(struct bpf_object *obj, enum libbpf_map_type type,
 	struct bpf_map *map;
 	size_t mmap_sz;
 	int err;
-
+	/* 
+	 * +------------+ <--- map <--- obj   // then, --(obj)
+	 * |            |
+	 * |            | = sizeof(bpf_object)
+	 * |            |
+	 * +------------+ <--- obj // first
+	 * |            |
+	 * | bpf_object |
+	 * |            |
+	 * +------------+
+	 */
 	map = --(obj);
 	if (IS_ERR(map))
 		return PTR_ERR(map);
@@ -1897,7 +1911,7 @@ bpf_object__init_internal_map(struct bpf_object *obj, enum libbpf_map_type type,
 		 map->name, map->sec_idx, map->sec_offset, def->map_flags);
 
 	mmap_sz = bpf_map_mmap_sz(map);
-	map->mmaped = mmap(NULL, mmap_sz, PROT_READ | PROT_WRITE,
+	map->mmaped = mmap(NULL, mmap_sz, PROT_READ | PROT_WRITE, // mmap()作用：可以把文件映射到进程的虚拟内存空间。通过对这段内存的读取和修改，可以实现对文件的读取和修改，而不需要用read和write函数
 			   MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	if (map->mmaped == MAP_FAILED) {
 		err = -errno;
@@ -1916,7 +1930,7 @@ bpf_object__init_internal_map(struct bpf_object *obj, enum libbpf_map_type type,
 	return 0;
 }
 
-static int bpf_object__init_global_data_maps(struct bpf_object *obj)
+static int bpf_object__init_global_data_maps(struct bpf_object *obj) // 从ELF节中拷贝.data、.rodata、.bss节的数据到map->mmaped中
 {
 	struct elf_sec_desc *sec_desc;
 	const char *sec_name;
@@ -1925,7 +1939,7 @@ static int bpf_object__init_global_data_maps(struct bpf_object *obj)
 	/*
 	 * Populate obj->maps with libbpf internal maps.
 	 */
-	for (sec_idx = 1; sec_idx < obj->efile.sec_cnt; sec_idx++) {
+	for (sec_idx = 1; sec_idx < obj->efile.sec_cnt; sec_idx++) { // sec_idx从1开始，因为ELF文件中编号为0的节是不使用的，不存放数据
 		sec_desc = &obj->efile.secs[sec_idx];
 
 		/* Skip recognized sections with size 0. */
@@ -1935,7 +1949,7 @@ static int bpf_object__init_global_data_maps(struct bpf_object *obj)
 		switch (sec_desc->sec_type) {
 		case SEC_DATA:
 			sec_name = elf_sec_name(obj, elf_sec_by_idx(obj, sec_idx));
-			err = bpf_object__init_internal_map(obj, LIBBPF_MAP_DATA,
+			err = bpf_object__init_internal_map(obj, LIBBPF_MAP_DATA,   // 拷贝ELF的.data节数据到map->mmaped
 							    sec_name, sec_idx,
 							    sec_desc->data->d_buf,
 							    sec_desc->data->d_size);
@@ -1943,14 +1957,14 @@ static int bpf_object__init_global_data_maps(struct bpf_object *obj)
 		case SEC_RODATA:
 			obj->has_rodata = true;
 			sec_name = elf_sec_name(obj, elf_sec_by_idx(obj, sec_idx));
-			err = bpf_object__init_internal_map(obj, LIBBPF_MAP_RODATA,
+			err = bpf_object__init_internal_map(obj, LIBBPF_MAP_RODATA, // 拷贝ELF的.rodata节数据到map->mmaped
 							    sec_name, sec_idx,
 							    sec_desc->data->d_buf,
 							    sec_desc->data->d_size);
 			break;
 		case SEC_BSS:
 			sec_name = elf_sec_name(obj, elf_sec_by_idx(obj, sec_idx));
-			err = bpf_object__init_internal_map(obj, LIBBPF_MAP_BSS,
+			err = bpf_object__init_internal_map(obj, LIBBPF_MAP_BSS,   // 拷贝ELF的.bss节数据到map->mmaped
 							    sec_name, sec_idx,
 							    NULL,
 							    sec_desc->data->d_size);
@@ -2287,7 +2301,7 @@ static int bpf_object__init_kconfig_map(struct bpf_object *obj)
 const struct btf_type *
 skip_mods_and_typedefs(const struct btf *btf, __u32 id, __u32 *res_id)
 {
-	const struct btf_type *t = btf__type_by_id(btf, id);
+	const struct btf_type *t = btf__type_by_id(btf, id); // 找到表示BTF_KIND_STRUCT类型的btf_type指针
 
 	if (res_id)
 		*res_id = id;
@@ -2354,33 +2368,33 @@ const char *btf_kind_str(const struct btf_type *t)
  * encodes `type => BPF_MAP_TYPE_ARRAY` key/value pair completely using BTF
  * type definition, while using only sizeof(void *) space in ELF data section.
  */
-static bool get_map_field_int(const char *map_name, const struct btf *btf,
+static bool get_map_field_int(const char *map_name, const struct btf *btf, // 根据结构体成员变量类型，找到int指针类型的btf_type，之后根据指针的type找到BTF数组的btf_type地址，最后找到btf_array的地址，查找成功返回true，否则返回false
 			      const struct btf_member *m, __u32 *res)
 {
-	const struct btf_type *t = skip_mods_and_typedefs(btf, m->type, NULL);
-	const char *name = btf__name_by_offset(btf, m->name_off);
+	const struct btf_type *t = skip_mods_and_typedefs(btf, m->type, NULL); // 找到结构体成员变量类型(BTF_KIND_PTR)对应的btf_type地址，对于__uint(x,y)方式定义的成员，m->type是一个BTF_KIND_PTR类型
+	const char *name = btf__name_by_offset(btf, m->name_off); // 结构体成员名字
 	const struct btf_array *arr_info;
 	const struct btf_type *arr_t;
 
-	if (!btf_is_ptr(t)) {
+	if (!btf_is_ptr(t)) { // 检查是否是BTF_KIND_PTR类型
 		pr_warn("map '%s': attr '%s': expected PTR, got %s.\n",
 			map_name, name, btf_kind_str(t));
 		return false;
 	}
 
-	arr_t = btf__type_by_id(btf, t->type);
+	arr_t = btf__type_by_id(btf, t->type); // 获取BTF指针类型指向的类型，对于__uint(x,y)方式定义的成员，BTF指针类型指向的是数组类(BTF_KIND_ARRAY)
 	if (!arr_t) {
 		pr_warn("map '%s': attr '%s': type [%u] not found.\n",
 			map_name, name, t->type);
 		return false;
 	}
-	if (!btf_is_array(arr_t)) {
+	if (!btf_is_array(arr_t)) { // 检查btf_type是不是BTF_KIND_ARRAY
 		pr_warn("map '%s': attr '%s': expected ARRAY, got %s.\n",
 			map_name, name, btf_kind_str(arr_t));
 		return false;
 	}
-	arr_info = btf_array(arr_t);
-	*res = arr_info->nelems;
+	arr_info = btf_array(arr_t); // 获取btf_array的地址
+	*res = arr_info->nelems; // nelems表示数组的元素个数，元素个数实际上就是表示类型的值
 	return true;
 }
 
@@ -2464,21 +2478,21 @@ int parse_btf_map_def(const char *map_name, struct btf *btf,
 		      struct btf_map_def *map_def, struct btf_map_def *inner_def)
 {
 	const struct btf_type *t;
-	const struct btf_member *m;
+	const struct btf_member *m; // 表示结构体成员
 	bool is_inner = inner_def == NULL;
 	int vlen, i;
 
-	vlen = btf_vlen(def_t);
-	m = btf_members(def_t);
-	for (i = 0; i < vlen; i++, m++) {
-		const char *name = btf__name_by_offset(btf, m->name_off);
+	vlen = btf_vlen(def_t); // 获取结构体的成员数量
+	m = btf_members(def_t); // 获取结构体第一个成员变量描述符btf_member的地址
+	for (i = 0; i < vlen; i++, m++) { // 解析每个结构体成员
+		const char *name = btf__name_by_offset(btf, m->name_off); // 获取结构体成员名字
 
 		if (!name) {
 			pr_warn("map '%s': invalid field #%d.\n", map_name, i);
 			return -EINVAL;
 		}
 		if (strcmp(name, "type") == 0) {
-			if (!get_map_field_int(map_name, btf, m, &map_def->map_type))
+			if (!get_map_field_int(map_name, btf, m, &map_def->map_type)) // 找到描述'type'成员的指针的btf_type,再找到指针指向的数组的btf_type,通过数组btf_type的nelems获取到'type'成员的值保存在map_typs中
 				return -EINVAL;
 			map_def->parts |= MAP_DEF_MAP_TYPE;
 		} else if (strcmp(name, "max_entries") == 0) {
@@ -2493,7 +2507,7 @@ int parse_btf_map_def(const char *map_name, struct btf *btf,
 			if (!get_map_field_int(map_name, btf, m, &map_def->numa_node))
 				return -EINVAL;
 			map_def->parts |= MAP_DEF_NUMA_NODE;
-		} else if (strcmp(name, "key_size") == 0) {
+		} else if (strcmp(name, "key_size") == 0) { // BPF_MAP_TYPE_STACK_TRACE类型使用
 			__u32 sz;
 
 			if (!get_map_field_int(map_name, btf, m, &sz))
@@ -2505,21 +2519,21 @@ int parse_btf_map_def(const char *map_name, struct btf *btf,
 			}
 			map_def->key_size = sz;
 			map_def->parts |= MAP_DEF_KEY_SIZE;
-		} else if (strcmp(name, "key") == 0) {
+		} else if (strcmp(name, "key") == 0) { // key是通过'__type'方式定义的
 			__s64 sz;
 
-			t = btf__type_by_id(btf, m->type);
+			t = btf__type_by_id(btf, m->type);  // 找到描述变量类型(此时为BTF_KIND_PTR)的btf_type
 			if (!t) {
 				pr_warn("map '%s': key type [%d] not found.\n",
 					map_name, m->type);
 				return -EINVAL;
 			}
-			if (!btf_is_ptr(t)) {
+			if (!btf_is_ptr(t)) { // 检查btf_type是不是BTF_KIND_PTR类型
 				pr_warn("map '%s': key spec is not PTR: %s.\n",
 					map_name, btf_kind_str(t));
 				return -EINVAL;
 			}
-			sz = btf__resolve_size(btf, t->type);
+			sz = btf__resolve_size(btf, t->type); // 计算key的大小, t->type为指针类型btf_type中指向的类型，即表示指针的类型
 			if (sz < 0) {
 				pr_warn("map '%s': can't determine key size for type [%u]: %zd.\n",
 					map_name, t->type, (ssize_t)sz);
@@ -2531,7 +2545,7 @@ int parse_btf_map_def(const char *map_name, struct btf *btf,
 				return -EINVAL;
 			}
 			map_def->key_size = sz;
-			map_def->key_type_id = t->type;
+			map_def->key_type_id = t->type; // 找到成员变量指向的BTF_KIND_PTR类型的btf_type的索引
 			map_def->parts |= MAP_DEF_KEY_SIZE | MAP_DEF_KEY_TYPE;
 		} else if (strcmp(name, "value_size") == 0) {
 			__u32 sz;
@@ -2775,8 +2789,13 @@ static const char *btf_var_linkage_str(__u32 linkage)
 	}
 }
 
+/* 对每个map进行处理
+ * 1、构造bpf_map结构体数组
+ * 2、为每个map分配fd
+ * 3、解析每个map结构体成员的类型，获取类型的值并保存
+ */
 static int bpf_object__init_user_btf_map(struct bpf_object *obj,
-					 const struct btf_type *sec,
+					 const struct btf_type *sec, // .maps的btf_type的地址
 					 int var_idx, int sec_idx,
 					 const Elf_Data *data, bool strict,
 					 const char *pin_root_path)
@@ -2789,10 +2808,21 @@ static int bpf_object__init_user_btf_map(struct bpf_object *obj,
 	struct bpf_map *map;
 	int err;
 
-	vi = btf_var_secinfos(sec) + var_idx;
-	var = btf__type_by_id(obj->btf, vi->type);
-	var_extra = btf_var(var);
-	map_name = btf__name_by_offset(obj->btf, var->name_off);
+	/* +-----------------+ <--- sec
+	 * |     btf_type    |
+	 * +-----------------+ <--- btf_var_secinfos(sec)         btf_var_secinfo
+	 * | btf_var_secinfo | var_idx = 0 ====================> +---------------+
+	 * +-----------------+                                   |     type      |
+	 * | btf_var_secinfo | var_idx = 1                       +---------------+
+	 * +-----------------+                                   |    offset     |
+	 * | btf_var_secinfo | var_idx = 2                       +---------------+  
+	 * +-----------------+                                   |     size      |   
+	 *                                                       +---------------+
+	 */
+	vi = btf_var_secinfos(sec) + var_idx; // btf_var_secinfos()返回btf_var_secinfo的地址
+	var = btf__type_by_id(obj->btf, vi->type); // 找到描述map变量类型(BTF_KIND_VAR)的btf_type的地址
+	var_extra = btf_var(var); // 获取描述BTF_KIND_VAR类型的btf_var结构的地址
+	map_name = btf__name_by_offset(obj->btf, var->name_off); // 获取map的名字
 
 	if (map_name == NULL || map_name[0] == '\0') {
 		pr_warn("map #%d: empty name.\n", var_idx);
@@ -2802,6 +2832,9 @@ static int bpf_object__init_user_btf_map(struct bpf_object *obj,
 		pr_warn("map '%s' BTF data is corrupted.\n", map_name);
 		return -EINVAL;
 	}
+
+	printf("hello world");
+
 	if (!btf_is_var(var)) {
 		pr_warn("map '%s': unexpected var kind %s.\n",
 			map_name, btf_kind_str(var));
@@ -2813,18 +2846,18 @@ static int bpf_object__init_user_btf_map(struct bpf_object *obj,
 		return -EOPNOTSUPP;
 	}
 
-	def = skip_mods_and_typedefs(obj->btf, var->type, NULL);
-	if (!btf_is_struct(def)) {
+	def = skip_mods_and_typedefs(obj->btf, var->type, NULL); // var->type为BTF_KIND_STRUCT类型，获取BTF_KIND_STRUCT类型的btf_type指针
+	if (!btf_is_struct(def)) { // 检查btf_type是不是BTF_KIND_STRUCT类型
 		pr_warn("map '%s': unexpected def kind %s.\n",
 			map_name, btf_kind_str(var));
 		return -EINVAL;
 	}
-	if (def->size > vi->size) {
+	if (def->size > vi->size) { // btf_var_sedinfo中的size就是结构体的大小
 		pr_warn("map '%s': invalid def size.\n", map_name);
 		return -EINVAL;
 	}
-
-	map = bpf_object__add_map(obj);
+	// 核心操作1，为map分配一个匿名内存描述符的fd。构造bpf_map结构体数组
+	map = bpf_object__add_map(obj); // 创建一片匿名内存，并将该匿名内存的文件描述符fd保存在map->fd中
 	if (IS_ERR(map))
 		return PTR_ERR(map);
 	map->name = strdup(map_name);
@@ -2834,17 +2867,17 @@ static int bpf_object__init_user_btf_map(struct bpf_object *obj,
 	}
 	map->libbpf_type = LIBBPF_MAP_UNSPEC;
 	map->def.type = BPF_MAP_TYPE_UNSPEC;
-	map->sec_idx = sec_idx;
-	map->sec_offset = vi->offset;
-	map->btf_var_idx = var_idx;
+	map->sec_idx = sec_idx; // .maps节在ELF节中的索引
+	map->sec_offset = vi->offset; // ？？？
+	map->btf_var_idx = var_idx; // map的编号，表示第几个map
 	pr_debug("map '%s': at sec_idx %d, offset %zu.\n",
 		 map_name, map->sec_idx, map->sec_offset);
-
-	err = parse_btf_map_def(map->name, obj->btf, def, strict, &map_def, &inner_def);
+	// 核心操作2: 从.BTF节中解析map结构体成员的值，保存在每个bpf_map中
+	err = parse_btf_map_def(map->name, obj->btf, def, strict, &map_def, &inner_def); // 解析struct成员的类型和值保存在btf_map_def中，def为表示BTF_KIND_STRUCT类型的btf_type的指针
 	if (err)
 		return err;
 
-	fill_map_from_def(map, &map_def);
+	fill_map_from_def(map, &map_def); // 将map结构体成员的值存到bpf_map结构中
 
 	if (map_def.pinning == LIBBPF_PIN_BY_NAME) {
 		err = build_map_pin_path(map, pin_root_path);
@@ -2854,7 +2887,7 @@ static int bpf_object__init_user_btf_map(struct bpf_object *obj,
 		}
 	}
 
-	if (map_def.parts & MAP_DEF_INNER_MAP) {
+	if (map_def.parts & MAP_DEF_INNER_MAP) { // 填充inner map结构体成员的值到bpf_map中
 		map->inner_map = calloc(1, sizeof(*map->inner_map));
 		if (!map->inner_map)
 			return -ENOMEM;
@@ -2881,24 +2914,28 @@ static int init_arena_map_data(struct bpf_object *obj, struct bpf_map *map,
 			       const char *sec_name, int sec_idx,
 			       void *data, size_t data_sz)
 {
-	const long page_sz = sysconf(_SC_PAGE_SIZE);
+	const long page_sz = sysconf(_SC_PAGE_SIZE); // 获取系统页面的大小，并将其存储在 page_sz 常量中。sysconf()是一个系统调用，用于检索特定系统参数的值
 	size_t mmap_sz;
 
-	mmap_sz = bpf_map_mmap_sz(obj->arena_map);
-	if (roundup(data_sz, page_sz) > mmap_sz) {
+	mmap_sz = bpf_map_mmap_sz(obj->arena_map); // 计算了需要为 ARENA 映射分配的内存空间大小
+	/* roundup(data_sz, page_sz) 这个语句的含义是将 data_sz 向上舍入到 page_sz 的倍数。在这里，data_sz 是要舍入的值，page_sz 是舍入的基数。
+         * 例如，如果 data_sz 是 4097，page_sz 是 4096，那么 roundup(data_sz, page_sz) 的结果将是 8192。这是因为 4097 向上舍入到 4096 的倍数是 8192。
+         * 在内存管理中，这种舍入操作通常用于确保分配的内存大小是某个特定值的倍数，例如页面大小。
+	 */
+	if (roundup(data_sz, page_sz) > mmap_sz) { // 检查声明的 ARENA 映射大小是否足够以容纳传入的数据。如果传入的数据大小超过了 ARENA 映射的大小，则会发出警告并返回错误码 -E2BIG
 		pr_warn("elf: sec '%s': declared ARENA map size (%zu) is too small to hold global __arena variables of size %zu\n",
 			sec_name, mmap_sz, data_sz);
 		return -E2BIG;
 	}
 
-	obj->arena_data = malloc(data_sz);
+	obj->arena_data = malloc(data_sz); // 如果 ARENA 映射大小足够容纳数据，则会使用 malloc 分配足够的内存空间，并将传入的数据拷贝到这块内存中
 	if (!obj->arena_data)
 		return -ENOMEM;
-	memcpy(obj->arena_data, data, data_sz);
-	obj->arena_data_sz = data_sz;
+	memcpy(obj->arena_data, data, data_sz); // 将.arena.1的数据拷贝到obj->arena_data中
+	obj->arena_data_sz = data_sz;           // 保存.arena.1节的数据区大小
 
 	/* make bpf_map__init_value() work for ARENA maps */
-	map->mmaped = obj->arena_data;
+	map->mmaped = obj->arena_data;   // 将.arena.1节数据区的地址保存在mmaped字段中
 
 	return 0;
 }
@@ -2913,26 +2950,26 @@ static int bpf_object__init_user_btf_maps(struct bpf_object *obj, bool strict,
 	Elf_Data *data;
 	Elf_Scn *scn;
 
-	if (obj->efile.btf_maps_shndx < 0)
+	if (obj->efile.btf_maps_shndx < 0) // .maps节头索引，初始值为-1
 		return 0;
 
-	scn = elf_sec_by_idx(obj, obj->efile.btf_maps_shndx);
-	data = elf_sec_data(obj, scn);
+	scn = elf_sec_by_idx(obj, obj->efile.btf_maps_shndx); // 通过.maps节的索引找到ELF中.maps节的节描述符
+	data = elf_sec_data(obj, scn); // 获取.maps节的数据区地址
 	if (!scn || !data) {
 		pr_warn("elf: failed to get %s map definitions for %s\n",
 			MAPS_ELF_SEC, obj->path);
 		return -EINVAL;
 	}
 
-	nr_types = btf__type_cnt(obj->btf);
-	for (i = 1; i < nr_types; i++) {
-		t = btf__type_by_id(obj->btf, i);
-		if (!btf_is_datasec(t))
+	nr_types = btf__type_cnt(obj->btf); // 获取btf_type的数量
+	for (i = 1; i < nr_types; i++) { // 找.BTF节中的描述.maps的btf_type指针
+		t = btf__type_by_id(obj->btf, i); // 先获取btf_type的地址
+		if (!btf_is_datasec(t)) // 查找描述.maps的btf_type, 如果btf_type的类型不是BTF_KIND_DATASEC(BTF中用来表示ELF节类型)，则跳过。因为.maps属于节类型
 			continue;
-		name = btf__name_by_offset(obj->btf, t->name_off);
-		if (strcmp(name, MAPS_ELF_SEC) == 0) {
-			sec = t;
-			obj->efile.btf_maps_sec_btf_id = i;
+		name = btf__name_by_offset(obj->btf, t->name_off); // 获取BTF类型的名字，名字保存在.BTF节的string section中
+		if (strcmp(name, MAPS_ELF_SEC) == 0) { // 判断BTF_KIND_DATASEC的名字是不是.maps
+			sec = t; // 获取.maps的btf_type的地址
+			obj->efile.btf_maps_sec_btf_id = i; // .maps类型的btf_type在.BTF type section的索引
 			break;
 		}
 	}
@@ -2942,20 +2979,20 @@ static int bpf_object__init_user_btf_maps(struct bpf_object *obj, bool strict,
 		return -ENOENT;
 	}
 
-	vlen = btf_vlen(sec);
+	vlen = btf_vlen(sec); // 变量的个数,sec为.maps的btf_type的地址，vlen为.maps的成员的数量，即map的数量
 	for (i = 0; i < vlen; i++) {
-		err = bpf_object__init_user_btf_map(obj, sec, i,
+		err = bpf_object__init_user_btf_map(obj, sec, i,    // 处理每个map，构造maps数组，为map分配fd，解析map结构的type、key、value类型并保存类型的值
 						    obj->efile.btf_maps_shndx,
 						    data, strict,
 						    pin_root_path);
 		if (err)
 			return err;
 	}
-
-	for (i = 0; i < obj->nr_maps; i++) {
+	// 单独处理BPF_MAP_TYPE_ARENA类型的map
+	for (i = 0; i < obj->nr_maps; i++) { // nr_maps在bpf_object__init_user_btf_map()已经计算出来了
 		struct bpf_map *map = &obj->maps[i];
 
-		if (map->def.type != BPF_MAP_TYPE_ARENA)
+		if (map->def.type != BPF_MAP_TYPE_ARENA) // BPF_MAP_TYPE_ARENA允许BPF程序在内核中创建一个共享的内存区域，可以在用户态和内核态之间进行直接的读写操作
 			continue;
 
 		if (obj->arena_map) {
@@ -2965,7 +3002,7 @@ static int bpf_object__init_user_btf_maps(struct bpf_object *obj, bool strict,
 		}
 		obj->arena_map = map;
 
-		if (obj->efile.arena_data) {
+		if (obj->efile.arena_data) { // 如果.arena.1节中有数据，即BPF代码中用__arena修饰的变量会保存在.arena.1节中
 			err = init_arena_map_data(obj, map, ARENA_SEC, obj->efile.arena_data_shndx,
 						  obj->efile.arena_data->d_buf,
 						  obj->efile.arena_data->d_size);
@@ -2990,11 +3027,11 @@ static int bpf_object__init_maps(struct bpf_object *obj,
 	int err = 0;
 
 	strict = !OPTS_GET(opts, relaxed_maps, false);
-	pin_root_path = OPTS_GET(opts, pin_root_path, NULL);
+	pin_root_path = OPTS_GET(opts, pin_root_path, NULL); // 如果调用bpf_object__open_file的时候，第二个参数为空，则pin_root_pathy为空
 
-	err = bpf_object__init_user_btf_maps(obj, strict, pin_root_path);
-	err = err ?: bpf_object__init_global_data_maps(obj);
-	err = err ?: bpf_object__init_kconfig_map(obj);
+	err = bpf_object__init_user_btf_maps(obj, strict, pin_root_path); // 处理.BTF节中的.maps类型，为.maps中的每个map创建fd，构造maps数组
+	err = err ?: bpf_object__init_global_data_maps(obj); // 拷贝ELF节的.data、.rodata、.bss数据到bpf_map的mmaped指向的地址处
+	err = err ?: bpf_object__init_kconfig_map(obj);      // 拷贝.
 	err = err ?: bpf_object_init_struct_ops(obj);
 
 	return err;
@@ -3158,8 +3195,8 @@ static int bpf_object__init_btf(struct bpf_object *obj,
 {
 	int err = -ENOENT;
 
-	if (btf_data) {
-		obj->btf = btf__new(btf_data->d_buf, btf_data->d_size);
+	if (btf_data) { // .BTF节的数据区
+		obj->btf = btf__new(btf_data->d_buf, btf_data->d_size); // 计算.BTF节中types section的type数量，并记录每个元素的偏移量
 		err = libbpf_get_error(obj->btf);
 		if (err) {
 			obj->btf = NULL;
@@ -3169,8 +3206,8 @@ static int bpf_object__init_btf(struct bpf_object *obj,
 		/* enforce 8-byte pointers for BPF-targeted BTFs */
 		btf__set_pointer_size(obj->btf, 8);
 	}
-	if (btf_ext_data) {
-		struct btf_ext_info *ext_segs[3];
+	if (btf_ext_data) { // .BTF.ext节的数据区
+		struct btf_ext_info *ext_segs[3];  // 3个元素正好对应.btf_ext结构的三种类型表项：func_info、line_info、core_relo_func
 		int seg_num, sec_num;
 
 		if (!obj->btf) {
@@ -3559,7 +3596,7 @@ static const char *elf_sec_str(const struct bpf_object *obj, size_t off)
 {
 	const char *name;
 
-	name = elf_strptr(obj->efile.elf, obj->efile.shstrndx, off); // shstrndx表示节头字符串表的索引，off是指定要获取的字符串在字符串表中的位置
+	name = elf_strptr(obj->efile.elf, obj->efile.shstrndx, off); // shstrndx表示节头字符串表的索引，off是节名在节名字符串表中的索引
 	if (!name) {
 		pr_warn("elf: failed to get section name string at offset %zu from %s: %s\n",
 			off, obj->path, elf_errmsg(-1));
@@ -3731,11 +3768,11 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 {
 	struct elf_sec_desc *sec_desc;
 	Elf *elf = obj->efile.elf;
-	Elf_Data *btf_ext_data = NULL;
+	Elf_Data *btf_ext_data = NULL;  // 指向.BTF.ext节的数据区
 	Elf_Data *btf_data = NULL;
 	int idx = 0, err = 0;
 	const char *name;
-	Elf_Data *data; 
+	Elf_Data *data; // ELF节数据区地址
 	/* Elf_Scn结构包含了节的所有信息，包括节的类型、标志、地址、大小等。
 	 * 它还包含了一个指向 Elf64_Shdr 结构的指针，这个结构包含了更详细的节信息，如节的名字、偏移量、对齐方式等
 	 */
@@ -3763,6 +3800,9 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 	/* a bunch of ELF parsing functionality depends on processing symbols,
 	 * so do the first pass and find the symbol table
 	 */
+	/* 一堆ELF解析功能依赖于处理符号，所以第一遍先遍历所有节并找到符号表
+	 * 把符号表节的第一个数据区地址保存在bpf_object的symbols指针中，并且把符号表节的索引保存在symbols_shndx
+	 */
 	scn = NULL; 
 	while ((scn = elf_nextscn(elf, scn)) != NULL) { // 如果scn为空，则返回第一个节的地址，否则返回当前节的下一个节的地址
 		sh = elf_sec_hdr(obj, scn); // 找的节的节头地址，然后判断节类型
@@ -3781,9 +3821,9 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 
 			idx = elf_ndxscn(scn); // 获得这个节的索引
 
-			obj->efile.symbols = data; // 此时才将符号表第一个数据区的地址赋值给
+			obj->efile.symbols = data; // 此时才将符号表第一个数据区的地址赋值给symbols
 			obj->efile.symbols_shndx = idx; // 符号表节的索引
-			obj->efile.strtabidx = sh->sh_link; // 与符号表相关的另一个节的索引
+			obj->efile.strtabidx = sh->sh_link; // 与符号表相关的另一个节的索引，即符号字符串表的索引
 		}
 	}
 
@@ -3793,16 +3833,19 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 		return -ENOENT;
 	}
 
+	/* 第二次遍历所有节，并同时将各节的一些数据填充到bpf_object中
+	 * 经过这一步，基本将elf文件的所有节信息被完整解析，节数据也全部保存在了bpf_object结构中
+	 */
 	scn = NULL;
 	while ((scn = elf_nextscn(elf, scn)) != NULL) {
 		idx = elf_ndxscn(scn);
 		sec_desc = &obj->efile.secs[idx];
 
-		sh = elf_sec_hdr(obj, scn);
+		sh = elf_sec_hdr(obj, scn); // 获取节头
 		if (!sh)
 			return -LIBBPF_ERRNO__FORMAT;
 		// 获取节名字
-		name = elf_sec_str(obj, sh->sh_name); // sh_name是节名在字符串表中的索引
+		name = elf_sec_str(obj, sh->sh_name); // sh_name是节名在节名字符串表中的索引
 		if (!name)
 			return -LIBBPF_ERRNO__FORMAT;
 
@@ -3818,7 +3861,7 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 			 (int)sh->sh_link, (unsigned long)sh->sh_flags,
 			 (int)sh->sh_type);
 
-		if (strcmp(name, "license") == 0) { // 如果节的名字是license,
+		if (strcmp(name, "license") == 0) { // 判断节的名字是否是license,
 			err = bpf_object__init_license(obj, data->d_buf, data->d_size); // 从license节中把许可证信息拷贝到obj->license
 			if (err)
 				return err;
@@ -3829,51 +3872,51 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 		} else if (strcmp(name, "maps") == 0) {
 			pr_warn("elf: legacy map definitions in 'maps' section are not supported by libbpf v1.0+\n");
 			return -ENOTSUP;
-		} else if (strcmp(name, MAPS_ELF_SEC) == 0) { // .maps的宏表示
-			obj->efile.btf_maps_shndx = idx;
-		} else if (strcmp(name, BTF_ELF_SEC) == 0) {
+		} else if (strcmp(name, MAPS_ELF_SEC) == 0) { // .maps节
+			obj->efile.btf_maps_shndx = idx; // 保存.maps节的索引
+		} else if (strcmp(name, BTF_ELF_SEC) == 0) { // .BTF节，包含类型和字符串数据
 			if (sh->sh_type != SHT_PROGBITS)
 				return -LIBBPF_ERRNO__FORMAT;
-			btf_data = data;
-		} else if (strcmp(name, BTF_EXT_ELF_SEC) == 0) {
+			btf_data = data; // .BTF节数据区的地址
+		} else if (strcmp(name, BTF_EXT_ELF_SEC) == 0) {  // .BTF.ext节
 			if (sh->sh_type != SHT_PROGBITS)
 				return -LIBBPF_ERRNO__FORMAT;
 			btf_ext_data = data;
-		} else if (sh->sh_type == SHT_SYMTAB) {
+		} else if (sh->sh_type == SHT_SYMTAB) {    // 符号表节类型
 			/* already processed during the first pass above */
-		} else if (sh->sh_type == SHT_PROGBITS && data->d_size > 0) {
-			if (sh->sh_flags & SHF_EXECINSTR) {
-				if (strcmp(name, ".text") == 0) // 代码节
+		} else if (sh->sh_type == SHT_PROGBITS && data->d_size > 0) { // SHT(Section Header Type)，节头的类型
+			if (sh->sh_flags & SHF_EXECINSTR) { // SHF(Section Header Flag),SHF_EXECINSTR表示该节包含可执行指令
+				if (strcmp(name, ".text") == 0) // 如果是.text节，保存.text节的索引
 					obj->efile.text_shndx = idx;
-				err = bpf_object__add_programs(obj, data, name, idx);
+				err = bpf_object__add_programs(obj, data, name, idx); // SEC("abc")方式定义的节，这些节都是SHT_PROGBITS类型，并且包含可执行指令
 				if (err)
 					return err;
-			} else if (strcmp(name, DATA_SEC) == 0 ||
+			} else if (strcmp(name, DATA_SEC) == 0 ||           // .data
 				   str_has_pfx(name, DATA_SEC ".")) {
 				sec_desc->sec_type = SEC_DATA;
 				sec_desc->shdr = sh;
-				sec_desc->data = data;
+				sec_desc->data = data;                      // .rodata
 			} else if (strcmp(name, RODATA_SEC) == 0 ||
 				   str_has_pfx(name, RODATA_SEC ".")) {
 				sec_desc->sec_type = SEC_RODATA;
 				sec_desc->shdr = sh;
 				sec_desc->data = data;
-			} else if (strcmp(name, STRUCT_OPS_SEC) == 0 ||
-				   strcmp(name, STRUCT_OPS_LINK_SEC) == 0 ||
-				   strcmp(name, "?" STRUCT_OPS_SEC) == 0 ||
-				   strcmp(name, "?" STRUCT_OPS_LINK_SEC) == 0) {
+			} else if (strcmp(name, STRUCT_OPS_SEC) == 0 ||            // .struct_ops
+				   strcmp(name, STRUCT_OPS_LINK_SEC) == 0 ||       // .struct_ops.link
+				   strcmp(name, "?" STRUCT_OPS_SEC) == 0 ||        // ?.struct_ops
+				   strcmp(name, "?" STRUCT_OPS_LINK_SEC) == 0) {   // ?.struct_ops.link
 				sec_desc->sec_type = SEC_ST_OPS;
 				sec_desc->shdr = sh;
 				sec_desc->data = data;
 				obj->efile.has_st_ops = true;
-			} else if (strcmp(name, ARENA_SEC) == 0) {
-				obj->efile.arena_data = data;
+			} else if (strcmp(name, ARENA_SEC) == 0) { // .arena.1。LLVM自动将__arena变量放入". arena.1"ELF部分
+				obj->efile.arena_data = data;      // .arena.1节数据区地址
 				obj->efile.arena_data_shndx = idx;
 			} else {
 				pr_info("elf: skipping unrecognized data section(%d) %s\n",
 					idx, name);
 			}
-		} else if (sh->sh_type == SHT_REL) {
+		} else if (sh->sh_type == SHT_REL) { // 重定位的ELF节
 			int targ_sec_idx = sh->sh_info; /* points to other section */
 
 			if (sh->sh_entsize != sizeof(Elf64_Rel) ||
@@ -3881,12 +3924,12 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 				return -LIBBPF_ERRNO__FORMAT;
 
 			/* Only do relo for section with exec instructions */
-			if (!section_have_execinstr(obj, targ_sec_idx) &&
-			    strcmp(name, ".rel" STRUCT_OPS_SEC) &&
-			    strcmp(name, ".rel" STRUCT_OPS_LINK_SEC) &&
-			    strcmp(name, ".rel?" STRUCT_OPS_SEC) &&
-			    strcmp(name, ".rel?" STRUCT_OPS_LINK_SEC) &&
-			    strcmp(name, ".rel" MAPS_ELF_SEC)) {
+			if (!section_have_execinstr(obj, targ_sec_idx) && // 检查节flag是否是SHF_EXECINSTR，即包含指令
+			    strcmp(name, ".rel" STRUCT_OPS_SEC) &&        // .rel.struct_ops
+			    strcmp(name, ".rel" STRUCT_OPS_LINK_SEC) &&   // .rel.struct_ops.link
+			    strcmp(name, ".rel?" STRUCT_OPS_SEC) &&       // .rel?.struct_ops
+			    strcmp(name, ".rel?" STRUCT_OPS_LINK_SEC) &&  // .rel?.struct_ops.link
+			    strcmp(name, ".rel" MAPS_ELF_SEC)) {          // .rel.maps
 				pr_info("elf: skipping relo section(%d) %s for section(%d) %s\n",
 					idx, name, targ_sec_idx,
 					elf_sec_name(obj, elf_sec_by_idx(obj, targ_sec_idx)) ?: "<?>");
@@ -3896,7 +3939,7 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 			sec_desc->sec_type = SEC_RELO;
 			sec_desc->shdr = sh;
 			sec_desc->data = data;
-		} else if (sh->sh_type == SHT_NOBITS && (strcmp(name, BSS_SEC) == 0 ||
+		} else if (sh->sh_type == SHT_NOBITS && (strcmp(name, BSS_SEC) == 0 ||       // .bss节
 							 str_has_pfx(name, BSS_SEC "."))) {
 			sec_desc->sec_type = SEC_BSS;
 			sec_desc->shdr = sh;
@@ -3918,7 +3961,7 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 	if (obj->nr_programs)
 		qsort(obj->programs, obj->nr_programs, sizeof(*obj->programs), cmp_progs);
 
-	return bpf_object__init_btf(obj, btf_data, btf_ext_data);
+	return bpf_object__init_btf(obj, btf_data, btf_ext_data); // 解析.BTF和.BTF.ext节，获取节数据保存到obj->btf、obj->btf_ext中
 }
 
 static bool sym_is_extern(const Elf64_Sym *sym)
@@ -4072,17 +4115,17 @@ static int cmp_externs(const void *_a, const void *_b)
 	return strcmp(a->name, b->name);
 }
 
-static int find_int_btf_id(const struct btf *btf)
+static int find_int_btf_id(const struct btf *btf) // 返回BTF_KIND_INT类型的btf_type的id
 {
 	const struct btf_type *t;
 	int i, n;
 
-	n = btf__type_cnt(btf);
+	n = btf__type_cnt(btf); // 获取btf_type个数
 	for (i = 1; i < n; i++) {
 		t = btf__type_by_id(btf, i);
 
-		if (btf_is_int(t) && btf_int_bits(t) == 32)
-			return i;
+		if (btf_is_int(t) && btf_int_bits(t) == 32) // btf_int_bits()确保从结构体指针t所指向的数据中提取出的整数类型的位数为 32
+			return i;  // 返回第一个BTF_KIND_INT类型的btf_type的id
 	}
 
 	return 0;
@@ -4096,28 +4139,28 @@ static int add_dummy_ksym_var(struct btf *btf)
 
 	if (!btf)
 		return 0;
-
-	sec_btf_id = btf__find_by_name_kind(btf, KSYMS_SEC,
-					    BTF_KIND_DATASEC);
+	// 在.BTF中找到.ksyms的btf_type id
+	sec_btf_id = btf__find_by_name_kind(btf, KSYMS_SEC,    // 节名
+					    BTF_KIND_DATASEC); // BTF type类型
 	if (sec_btf_id < 0)
 		return 0;
 
-	sec = btf__type_by_id(btf, sec_btf_id);
-	vs = btf_var_secinfos(sec);
-	for (i = 0; i < btf_vlen(sec); i++, vs++) {
+	sec = btf__type_by_id(btf, sec_btf_id); // 获取.ksyms的btf_type地址
+	vs = btf_var_secinfos(sec); // 获取.ksyms中第一个符号的DATASEC成员描述符的地址
+	for (i = 0; i < btf_vlen(sec); i++, vs++) { // 遍历.ksyms的所有成员
 		const struct btf_type *vt;
 
-		vt = btf__type_by_id(btf, vs->type);
-		if (btf_is_func(vt))
+		vt = btf__type_by_id(btf, vs->type);  // 找到成员类型的btf_type
+		if (btf_is_func(vt)) // 判断btf_type是不是BTF_KIND_FUNC类型的，即函数符号
 			break;
 	}
 
 	/* No func in ksyms sec.  No need to add dummy var. */
-	if (i == btf_vlen(sec))
+	if (i == btf_vlen(sec)) // 如果在".ksyms"数据段中没有找到函数类型的变量，则直接返回。如果没有找到，前面的for循环会穷尽btf_type所有元素，所以次数会等于btf_type元素个数
 		return 0;
 
-	int_btf_id = find_int_btf_id(btf);
-	dummy_var_btf_id = btf__add_var(btf,
+	int_btf_id = find_int_btf_id(btf); // 返回.BTF中第一个BTF_KIND_INT类型的btf_type的id
+	dummy_var_btf_id = btf__add_var(btf,          // 在type section中追加一个BTF_KIND_VAR的类型，名字为dummy_ksym
 					"dummy_ksym",
 					BTF_VAR_GLOBAL_ALLOCATED,
 					int_btf_id);
@@ -4127,12 +4170,17 @@ static int add_dummy_ksym_var(struct btf *btf)
 	return dummy_var_btf_id;
 }
 
+/* 处理extern符号，包括内核函数符号和内核数据结构。
+ * 原理：
+ *      1、在.BTF的type section中追加一个名字为dummy_ksym的BTF_KIND_VAR类型，从符号表中找到获取所有内核函数符号名
+ *      
+ */
 static int bpf_object__collect_externs(struct bpf_object *obj)
 {
 	struct btf_type *sec, *kcfg_sec = NULL, *ksym_sec = NULL;
 	const struct btf_type *t;
 	struct extern_desc *ext;
-	int i, n, off, dummy_var_btf_id;
+	int i, n, off, dummy_var_btf_id; // dummy_var_btf_id表示在.BTF原有的btf_type的基础上追加一个type
 	const char *ext_name, *sec_name;
 	size_t ext_essent_len;
 	Elf_Scn *scn;
@@ -4141,16 +4189,16 @@ static int bpf_object__collect_externs(struct bpf_object *obj)
 	if (!obj->efile.symbols)
 		return 0;
 
-	scn = elf_sec_by_idx(obj, obj->efile.symbols_shndx);
+	scn = elf_sec_by_idx(obj, obj->efile.symbols_shndx); // 找到符号表节的节描述符
 	sh = elf_sec_hdr(obj, scn);
-	if (!sh || sh->sh_entsize != sizeof(Elf64_Sym))
+	if (!sh || sh->sh_entsize != sizeof(Elf64_Sym)) // 符号表节的表项是固定大小的，大小为符号表项描述符Elf64_Sym的Size
 		return -LIBBPF_ERRNO__FORMAT;
 
-	dummy_var_btf_id = add_dummy_ksym_var(obj->btf);
+	dummy_var_btf_id = add_dummy_ksym_var(obj->btf); // 在.BTF type section中追加一个名字为dummy_ksym的BTF_KIND_VAR类型，返回其btf_type id
 	if (dummy_var_btf_id < 0)
 		return dummy_var_btf_id;
 
-	n = sh->sh_size / sh->sh_entsize;
+	n = sh->sh_size / sh->sh_entsize; // 获取符号表的表项的个数
 	pr_debug("looking for externs among %d symbols...\n", n);
 
 	for (i = 0; i < n; i++) {
@@ -4158,9 +4206,9 @@ static int bpf_object__collect_externs(struct bpf_object *obj)
 
 		if (!sym)
 			return -LIBBPF_ERRNO__FORMAT;
-		if (!sym_is_extern(sym))
+		if (!sym_is_extern(sym))     // extern sym
 			continue;
-		ext_name = elf_sym_str(obj, sym->st_name);
+		ext_name = elf_sym_str(obj, sym->st_name); // 找到符号名字
 		if (!ext_name || !ext_name[0])
 			continue;
 
@@ -4171,18 +4219,18 @@ static int bpf_object__collect_externs(struct bpf_object *obj)
 		obj->externs = ext;
 		ext = &ext[obj->nr_extern];
 		memset(ext, 0, sizeof(*ext));
-		obj->nr_extern++;
+		obj->nr_extern++;   // 没找到一个extern 内核函数符号，就将nr_extern加一
 
-		ext->btf_id = find_extern_btf_id(obj->btf, ext_name);
+		ext->btf_id = find_extern_btf_id(obj->btf, ext_name); // 在.BTF的type section中找到该内核函数符号的btf_type id
 		if (ext->btf_id <= 0) {
 			pr_warn("failed to find BTF for extern '%s': %d\n",
 				ext_name, ext->btf_id);
 			return ext->btf_id;
 		}
-		t = btf__type_by_id(obj->btf, ext->btf_id);
-		ext->name = btf__name_by_offset(obj->btf, t->name_off);
-		ext->sym_idx = i;
-		ext->is_weak = ELF64_ST_BIND(sym->st_info) == STB_WEAK;
+		t = btf__type_by_id(obj->btf, ext->btf_id);  // 找到type name为函数名的btf_type
+		ext->name = btf__name_by_offset(obj->btf, t->name_off); // 内核函数名
+		ext->sym_idx = i;  // 表示内核函数符号的描述符在ELF符号表中的索引
+		ext->is_weak = ELF64_ST_BIND(sym->st_info) == STB_WEAK;  // 检查符号是不是弱绑定
 
 		ext_essent_len = bpf_core_essential_name_len(ext->name);
 		ext->essent_name = NULL;
@@ -4192,16 +4240,16 @@ static int bpf_object__collect_externs(struct bpf_object *obj)
 				return -ENOMEM;
 		}
 
-		ext->sec_btf_id = find_extern_sec_btf_id(obj->btf, ext->btf_id);
+		ext->sec_btf_id = find_extern_sec_btf_id(obj->btf, ext->btf_id); // 通过函数符号的btf_type id向上找到指向该id的DATASEC类型的btf_type id，即找到包含该函数的DATASEC类型的btf_type id，即.ksyms的id
 		if (ext->sec_btf_id <= 0) {
 			pr_warn("failed to find BTF for extern '%s' [%d] section: %d\n",
 				ext_name, ext->btf_id, ext->sec_btf_id);
 			return ext->sec_btf_id;
 		}
-		sec = (void *)btf__type_by_id(obj->btf, ext->sec_btf_id);
-		sec_name = btf__name_by_offset(obj->btf, sec->name_off);
+		sec = (void *)btf__type_by_id(obj->btf, ext->sec_btf_id); // 找到.ksyms的btf_type
+		sec_name = btf__name_by_offset(obj->btf, sec->name_off);  // 获取type name，即.ksyms
 
-		if (strcmp(sec_name, KCONFIG_SEC) == 0) {
+		if (strcmp(sec_name, KCONFIG_SEC) == 0) {     // .kconfig
 			if (btf_is_func(t)) {
 				pr_warn("extern function %s is unsupported under %s section\n",
 					ext->name, KCONFIG_SEC);
@@ -4227,7 +4275,7 @@ static int bpf_object__collect_externs(struct bpf_object *obj)
 				pr_warn("extern (kcfg) '%s': type is unsupported\n", ext_name);
 				return -ENOTSUP;
 			}
-		} else if (strcmp(sec_name, KSYMS_SEC) == 0) {
+		} else if (strcmp(sec_name, KSYMS_SEC) == 0) {         // .ksyms
 			ksym_sec = sec;
 			ext->type = EXT_KSYM;
 			skip_mods_and_typedefs(obj->btf, t->type,
@@ -4239,7 +4287,7 @@ static int bpf_object__collect_externs(struct bpf_object *obj)
 	}
 	pr_debug("collected %d externs total\n", obj->nr_extern);
 
-	if (!obj->nr_extern)
+	if (!obj->nr_extern)  // 如果没有extern的符号则直接返回
 		return 0;
 
 	/* sort externs by type, for kcfg ones also by (align, size, name) */
@@ -4249,7 +4297,7 @@ static int bpf_object__collect_externs(struct bpf_object *obj)
 	 * variables in BTF to pass kernel verification; we do this by
 	 * pretending that each extern is a 8-byte variable
 	 */
-	if (ksym_sec) {
+	if (ksym_sec) { // 对于. ksyms部分，我们需要将所有外部变量转换为BTF中分配的变量以通过内核验证；我们通过假装每个extern都是一个8字节的变量来做到这一点
 		/* find existing 4-byte integer type in BTF to use for fake
 		 * extern variables in DATASEC
 		 */
@@ -4261,9 +4309,9 @@ static int bpf_object__collect_externs(struct bpf_object *obj)
 		 */
 		const struct btf_type *dummy_var;
 
-		dummy_var = btf__type_by_id(obj->btf, dummy_var_btf_id);
+		dummy_var = btf__type_by_id(obj->btf, dummy_var_btf_id); // 找到dummy_var的btf_type
 		for (i = 0; i < obj->nr_extern; i++) {
-			ext = &obj->externs[i];
+			ext = &obj->externs[i];    // 找到表示KSYM类型的外部符号描述符extern_desc指针
 			if (ext->type != EXT_KSYM)
 				continue;
 			pr_debug("extern (ksym) #%d: symbol %d, name %s\n",
@@ -4271,13 +4319,13 @@ static int bpf_object__collect_externs(struct bpf_object *obj)
 		}
 
 		sec = ksym_sec;
-		n = btf_vlen(sec);
+		n = btf_vlen(sec);  // 内核函数符号的数量
 		for (i = 0, off = 0; i < n; i++, off += sizeof(int)) {
 			struct btf_var_secinfo *vs = btf_var_secinfos(sec) + i;
 			struct btf_type *vt;
 
 			vt = (void *)btf__type_by_id(obj->btf, vs->type);
-			ext_name = btf__name_by_offset(obj->btf, vt->name_off);
+			ext_name = btf__name_by_offset(obj->btf, vt->name_off); // 内核函数名
 			ext = find_extern_by_name(obj, ext_name);
 			if (!ext) {
 				pr_warn("failed to find extern definition for BTF %s '%s'\n",
@@ -4295,12 +4343,12 @@ static int bpf_object__collect_externs(struct bpf_object *obj)
 				/* Reuse the dummy_var string if the
 				 * func proto does not have param name.
 				 */
-				for (j = 0; j < btf_vlen(func_proto); j++)
+				for (j = 0; j < btf_vlen(func_proto); j++) 
 					if (param[j].type && !param[j].name_off)
-						param[j].name_off =
-							dummy_var->name_off;
-				vs->type = dummy_var_btf_id;
-				vt->info &= ~0xffff;
+						param[j].name_off =             // 如果func proto没有参数名，则重用dummy_var字符串
+							dummy_var->name_off; 
+				vs->type = dummy_var_btf_id;  // 将这个符号的类型指向之前添加的假类型，假类型为
+				vt->info &= ~0xffff;          // 将 vt->info 的低 16 位清零，先取反，再按位与
 				vt->info |= BTF_FUNC_GLOBAL;
 			} else {
 				btf_var(vt)->linkage = BTF_VAR_GLOBAL_ALLOCATED;
@@ -7891,6 +7939,7 @@ static struct bpf_object *bpf_object_open(const char *path, const void *obj_buf,
 	if (token_path && strlen(token_path) >= PATH_MAX)
 		return ERR_PTR(-ENAMETOOLONG);
 
+	/* 核心代码，分配bpf_object内存并返回地址 */
 	obj = bpf_object__new(path, obj_buf, obj_buf_sz, obj_name); // 为obj结构分配内存，并将obj指针指向的内存全部被初始化为0
 	if (IS_ERR(obj))
 		return obj;
@@ -7931,13 +7980,13 @@ static struct bpf_object *bpf_object_open(const char *path, const void *obj_buf,
 
 	err = bpf_object__elf_init(obj); // 打开elf文件，获取elf指针和elf头保存在bpf_object中
 	err = err ? : bpf_object__check_endianness(obj); // 检查字节序
-	err = err ? : bpf_object__elf_collect(obj);
+	err = err ? : bpf_object__elf_collect(obj); // 处理ELF节，拷贝BPF指令，处理BTF节数据
 	err = err ? : bpf_object__collect_externs(obj);
 	err = err ? : bpf_object_fixup_btf(obj);
 	/* 在BPF程序加载到内核之前，需要先创建并初始化BPF映射。bpf_object__init_maps函数就是用来完成这个任务的。
 	 * 它会遍历BPF对象中的所有BPF映射，为每个BPF映射分配内存并初始化。
 	 */
-	err = err ? : bpf_object__init_maps(obj, opts);
+	err = err ? : bpf_object__init_maps(obj, opts); // 为所有map分配fd
 	err = err ? : bpf_object_init_progs(obj, opts);
 	err = err ? : bpf_object__collect_relos(obj);
 	if (err)

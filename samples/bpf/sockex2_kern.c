@@ -190,12 +190,13 @@ struct pair {
 	long bytes;
 };
 
+/* 全局变量 */
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __be32);
 	__type(value, struct pair);
 	__uint(max_entries, 1024);
-} hash_map SEC(".maps"); // SEC的定义要放在变量的后面
+} hash_map SEC(".maps"); // SEC的定义要放在变量的后面，具有节属性的全局变量
 
 SEC("socket2")
 int bpf_prog2(struct __sk_buff *skb)

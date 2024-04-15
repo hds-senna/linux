@@ -120,10 +120,10 @@ typedef __s64	Elf64_Sxword;
 #define DT_LOPROC	0x70000000
 #define DT_HIPROC	0x7fffffff
 
-/* This info is needed when parsing the symbol table */
-#define STB_LOCAL  0
-#define STB_GLOBAL 1
-#define STB_WEAK   2
+/* This info is needed when parsing the symbol table */ // 这三个宏定义了符号的绑定类型（binding type），用于指示符号在链接时的可见性和全局性
+#define STB_LOCAL  0     // 局部绑定。表示符号的作用域限定在当前文件或当前模块中，对于其他文件是不可见的。这意味着这些符号只能在定义它们的源文件中使用，其他文件无法访问它们。这些符号通常是局部变量、静态函数
+#define STB_GLOBAL 1     // 全局绑定。表示符号在整个程序中都是可见和可访问的。这意味着它们可以在其他文件中使用，链接器可以解析并将它们连接到其他模块中。全局绑定的符号通常是全局变量、公共函数或外部可见的静态函数。
+#define STB_WEAK   2     // 表示符号是可选的，如果有多个定义，则使用其中一个。如果程序中存在多个具有相同名称的弱绑定符号，则链接器将选择其中一个作为最终符号。弱绑定通常用于允许符号被重定义，但具有默认值或备用实现。在链接过程中，弱绑定的符号可以被强绑定的符号所覆盖。
 
 /* 文件格式中的符号类型（Symbol Type）定义。在ELF文件中，符号表（Symbol Table）包含了程序中使用的所有符号的信息，包括函数、变量、类型等。
  */
@@ -197,10 +197,10 @@ typedef struct elf32_sym {
 } Elf32_Sym;
 
 typedef struct elf64_sym {
-  Elf64_Word st_name;		/* Symbol name, index in string tbl */
+  Elf64_Word st_name;		/* Symbol name, index in string tbl */ // 符号名字在字符串表中的索引
   unsigned char	st_info;	/* Type and binding attributes */
   unsigned char	st_other;	/* No defined meaning, 0 */
-  Elf64_Half st_shndx;		/* Associated section index */
+  Elf64_Half st_shndx;		/* Associated section index */ // 包含此符号的节的索引
   Elf64_Addr st_value;		/* Value of the symbol */
   Elf64_Xword st_size;		/* Associated symbol size */
 } Elf64_Sym;
@@ -225,6 +225,8 @@ typedef struct elf32_hdr {
   Elf32_Half	e_shstrndx;
 } Elf32_Ehdr;
 
+/* ELF头
+ */
 typedef struct elf64_hdr {
   unsigned char	e_ident[EI_NIDENT];	/* ELF "magic number" */
   Elf64_Half e_type;
@@ -232,14 +234,14 @@ typedef struct elf64_hdr {
   Elf64_Word e_version;
   Elf64_Addr e_entry;		/* Entry point virtual address */
   Elf64_Off e_phoff;		/* Program header table file offset */
-  Elf64_Off e_shoff;		/* Section header table file offset */
+  Elf64_Off e_shoff;		// 表示从文件的起始位置到节头表的字节偏移。
   Elf64_Word e_flags;
   Elf64_Half e_ehsize;
   Elf64_Half e_phentsize;
   Elf64_Half e_phnum;
-  Elf64_Half e_shentsize;
-  Elf64_Half e_shnum;
-  Elf64_Half e_shstrndx;
+  Elf64_Half e_shentsize; // 表示每一项的大小（以字节为单位）
+  Elf64_Half e_shnum;   // 表示节头表包含的项数
+  Elf64_Half e_shstrndx; // 节头字符串表节的索引
 } Elf64_Ehdr;
 
 /* These constants define the permissions on sections in the program
@@ -321,16 +323,16 @@ typedef struct elf32_shdr {
 } Elf32_Shdr;
 
 typedef struct elf64_shdr {
-  Elf64_Word sh_name;		/* Section name, index in string tbl */
+  Elf64_Word sh_name;		/* Section name, index in string tbl */// 节的名称。此成员值是节头字符串表的节索引
   Elf64_Word sh_type;		/* Type of section */
   Elf64_Xword sh_flags;		/* Miscellaneous section attributes */
   Elf64_Addr sh_addr;		/* Section virtual addr at execution */
-  Elf64_Off sh_offset;		/* Section file offset */
-  Elf64_Xword sh_size;		/* Size of section in bytes */
-  Elf64_Word sh_link;		/* Index of another section */
+  Elf64_Off sh_offset;		/* Section file offset */ // 从文件的起始位置到节中第一个字节的字节偏移
+  Elf64_Xword sh_size;		/* Size of section in bytes */  // 节的大小（以字节为单位）
+  Elf64_Word sh_link;		/* Index of another section */ // 如果sh_type是SHT_SYMTAB(符号表)，该字段表示关联的字符串表的节头索引
   Elf64_Word sh_info;		/* Additional section information */
   Elf64_Xword sh_addralign;	/* Section alignment */
-  Elf64_Xword sh_entsize;	/* Entry size if section holds table */
+  Elf64_Xword sh_entsize;	/* Entry size if section holds table */ // 一些节包含固定大小的项的表，如符号表节、重定位节。对于这样的节，此成员会指定每一项的大小（以字节为单位）。如果节不包含固定大小的项的表，则此成员值为零。
 } Elf64_Shdr;
 
 #define	EI_MAG0		0		/* e_ident[] indexes */

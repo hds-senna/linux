@@ -10,8 +10,8 @@
  */
 #include "bpf_helper_defs.h"
 
-#define __uint(name, val) int (*name)[val]
-#define __type(name, val) typeof(val) *name
+#define __uint(name, val) int (*name)[val] // 需要数值的用__uint定义，这里用数组的方式，实际上是想用数组元素个数来表示了value的值，
+#define __type(name, val) typeof(val) *name // 需要size的用__type定义，
 #define __array(name, val) typeof(val) *name[]
 #define __ulong(name, val) enum { ___bpf_concat(__unique_value, __COUNTER__) = val } name
 
