@@ -64,7 +64,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct globals);
 	__uint(max_entries, 32);
-} percpu_map SEC(".maps");
+} percpu_map SEC(".maps"); // 不论定义多少个.maps节，所有结构体变量都会放入一个.maps节中
 
 /* user poor man's per_cpu until native support is ready */
 static struct globals *this_cpu_globals(void)

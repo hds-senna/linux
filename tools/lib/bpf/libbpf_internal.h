@@ -204,7 +204,7 @@ static inline void *libbpf_reallocarray(void *ptr, size_t nmemb, size_t size)
 		return NULL;
 	total = nmemb * size;
 #endif
-	return realloc(ptr, total);
+	return realloc(ptr, total); // 在ptr地址上重新分配total大小的内存空间，返回ptr
 }
 
 /* Copy up to sz - 1 bytes from zero-terminated src string and ensure that dst
@@ -255,22 +255,24 @@ enum map_def_parts {
 	MAP_DEF_MAP_FLAGS	= 0x040,
 	MAP_DEF_NUMA_NODE	= 0x080,
 	MAP_DEF_PINNING		= 0x100,
-	MAP_DEF_INNER_MAP	= 0x200,
+	MAP_DEF_INNER_MAP	= 0x200,  // map in map最多两层map，inner_map不能再包含map
 	MAP_DEF_MAP_EXTRA	= 0x400,
 
 	MAP_DEF_ALL		= 0x7ff, /* combination of all above */
 };
 
+/* 记录.maps节中定义的map结构成员的值
+ */
 struct btf_map_def {
 	enum map_def_parts parts;
-	__u32 map_type;
+	__u32 map_type;    // 'type'成员的值
 	__u32 key_type_id;
-	__u32 key_size;
+	__u32 key_size;    // key_size的值
 	__u32 value_type_id;
 	__u32 value_size;
-	__u32 max_entries;
-	__u32 map_flags;
-	__u32 numa_node;
+	__u32 max_entries; // max_entries的值
+	__u32 map_flags;   // map_flags的值
+	__u32 numa_node;   // numa_node的值
 	__u32 pinning;
 	__u64 map_extra;
 };
@@ -410,21 +412,21 @@ struct btf *btf_get_from_fd(int btf_fd, struct btf *base_btf);
 void btf_get_kernel_prefix_kind(enum bpf_attach_type attach_type,
 				const char **prefix, int *kind);
 
-struct btf_ext_info {
+struct btf_ext_info {  // .BTF.ext节表项描述符，描述func_info、line_info、core_relo_info数据
 	/*
 	 * info points to the individual info section (e.g. func_info and
 	 * line_info) from the .BTF.ext. It does not include the __u32 rec_size.
 	 */
-	void *info;
+	void *info;             // 指向 .BTF.ext 中的个别信息部分（例如 func_info 和 line_info）   
 	__u32 rec_size;
-	__u32 len;
+	__u32 len;              // 表示记录的数量或长度。它指明了存储在 info 指针所指向的区域中有多少个记录。
 	/* optional (maintained internally by libbpf) mapping between .BTF.ext
 	 * section and corresponding ELF section. This is used to join
 	 * information like CO-RE relocation records with corresponding BPF
 	 * programs defined in ELF sections
 	 */
-	__u32 *sec_idxs;
-	int sec_cnt;
+	__u32 *sec_idxs; // 用于维护 .BTF.ext 部分与相应的 ELF（可执行和可链接格式）部分之间的映射关系。这种映射关系通常用于将 CO-RE（Compile Once, Run Everywhere）重定位记录与在 ELF 部分中定义的 BPF 程序相关联。
+	int sec_cnt;     // 表示映射数组 sec_idxs 中元素的数量
 };
 
 #define for_each_btf_ext_sec(seg, sec)					\
@@ -466,7 +468,7 @@ struct btf_ext_header {
 	__u32	hdr_len;
 
 	/* All offsets are in bytes relative to the end of this header */
-	__u32	func_info_off;
+	__u32	func_info_off;    // func_info数据区起始地址到header的偏移
 	__u32	func_info_len;
 	__u32	line_info_off;
 	__u32	line_info_len;
@@ -476,10 +478,21 @@ struct btf_ext_header {
 	__u32	core_relo_len;
 };
 
+/* btf_ext block
+ * +-------------+
+ * |   header    |
+ * +-------------+
+ * |    func     | 
+ * +-------------+
+ * |    line     |
+ * +-------------+
+ * |  core_relo  |      // 可选的区
+ * +-------------+
+ */
 struct btf_ext {
 	union {
 		struct btf_ext_header *hdr;
-		void *data;
+		void *data; // 将.BTF.ext节数据拷贝到这个地址
 	};
 	struct btf_ext_info func_info;
 	struct btf_ext_info line_info;

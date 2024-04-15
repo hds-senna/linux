@@ -44,7 +44,7 @@ The beginning of data blob must be::
         __u32   hdr_len;
 
         /* All offsets are in bytes relative to the end of this header */
-        __u32   type_off;       /* offset of type section       */
+        __u32   type_off;       /* offset of type section       */ 
         __u32   type_len;       /* length of type section       */
         __u32   str_off;        /* offset of string section     */
         __u32   str_len;        /* length of string section     */
@@ -239,7 +239,7 @@ chained representation for multidimensional arrays.
   * ``info.kind_flag``: 0 or 1
   * ``info.kind``: BTF_KIND_STRUCT or BTF_KIND_UNION
   * ``info.vlen``: the number of struct/union members
-  * ``info.size``: the size of the struct/union in bytes
+  * ``info.size``: the size of the struct/union in bytes   // 这里写错了, size不是info字段的成员, 提个patch改下
 
 ``btf_type`` is followed by ``info.vlen`` number of ``struct btf_member``.::
 

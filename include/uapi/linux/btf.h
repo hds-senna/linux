@@ -57,26 +57,26 @@ struct btf_type {
 #define BTF_INFO_KFLAG(info)	((info) >> 31)
 
 enum {
-	BTF_KIND_UNKN		= 0,	/* Unknown	*/
-	BTF_KIND_INT		= 1,	/* Integer	*/
-	BTF_KIND_PTR		= 2,	/* Pointer	*/
-	BTF_KIND_ARRAY		= 3,	/* Array	*/
-	BTF_KIND_STRUCT		= 4,	/* Struct	*/
-	BTF_KIND_UNION		= 5,	/* Union	*/
-	BTF_KIND_ENUM		= 6,	/* Enumeration up to 32-bit values */
-	BTF_KIND_FWD		= 7,	/* Forward	*/
-	BTF_KIND_TYPEDEF	= 8,	/* Typedef	*/
-	BTF_KIND_VOLATILE	= 9,	/* Volatile	*/
-	BTF_KIND_CONST		= 10,	/* Const	*/
-	BTF_KIND_RESTRICT	= 11,	/* Restrict	*/
-	BTF_KIND_FUNC		= 12,	/* Function	*/
-	BTF_KIND_FUNC_PROTO	= 13,	/* Function Proto	*/
-	BTF_KIND_VAR		= 14,	/* Variable	*/
-	BTF_KIND_DATASEC	= 15,	/* Section	*/
-	BTF_KIND_FLOAT		= 16,	/* Floating point	*/
+	BTF_KIND_UNKN		= 0,	/* Unknown	*/ // 类型标识 0 是为 void 类型保留的
+	BTF_KIND_INT		= 1,	/* Integer	*/ // 整数
+	BTF_KIND_PTR		= 2,	/* Pointer	*/ // 指针
+	BTF_KIND_ARRAY		= 3,	/* Array	*/ // 数组
+	BTF_KIND_STRUCT		= 4,	/* Struct	*/ // 结构体
+	BTF_KIND_UNION		= 5,	/* Union	*/ // 联合体
+	BTF_KIND_ENUM		= 6,	/* Enumeration up to 32-bit values */ // 枚举类型，最多32位值
+	BTF_KIND_FWD		= 7,	/* Forward	*/ // 前向引用
+	BTF_KIND_TYPEDEF	= 8,	/* Typedef	*/ // 类型定义
+	BTF_KIND_VOLATILE	= 9,	/* Volatile	*/ // VOLATILE变量
+	BTF_KIND_CONST		= 10,	/* Const	*/ // 常量
+	BTF_KIND_RESTRICT	= 11,	/* Restrict	*/ // 限制性
+	BTF_KIND_FUNC		= 12,	/* Function	*/ // 函数
+	BTF_KIND_FUNC_PROTO	= 13,	/* Function Proto	*/ // 函数原型
+	BTF_KIND_VAR		= 14,	/* Variable	*/ // 变量
+	BTF_KIND_DATASEC	= 15,	/* Section	*/ // 数据部分
+	BTF_KIND_FLOAT		= 16,	/* Floating point	*/ //浮点类型
 	BTF_KIND_DECL_TAG	= 17,	/* Decl Tag */
 	BTF_KIND_TYPE_TAG	= 18,	/* Type Tag */
-	BTF_KIND_ENUM64		= 19,	/* Enumeration up to 64-bit values */
+	BTF_KIND_ENUM64		= 19,	/* Enumeration up to 64-bit values */ // 枚举类型，最多64位值
 
 	NR_BTF_KINDS,
 	BTF_KIND_MAX		= NR_BTF_KINDS - 1,

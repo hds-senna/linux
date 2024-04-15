@@ -72,7 +72,7 @@ static inline __u64 ptr_to_u64(const void *ptr)
 static inline int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
 			  unsigned int size)
 {
-	return syscall(__NR_bpf, cmd, attr, size);
+	return syscall(__NR_bpf, cmd, attr, size); // glibc提供的系统调用api
 }
 
 static inline int sys_bpf_fd(enum bpf_cmd cmd, union bpf_attr *attr,

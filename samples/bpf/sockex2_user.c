@@ -28,7 +28,7 @@ int main(int ac, char **argv)
 		return 1;
 
 	prog = bpf_object__next_program(obj, NULL);
-	bpf_program__set_type(prog, BPF_PROG_TYPE_SOCKET_FILTER);
+	bpf_program__set_type(prog, BPF_PROG_TYPE_SOCKET_FILTER); // 默认是BPF_PROG_TYPE_UNSPEC
 
 	err = bpf_object__load(obj);
 	if (err)

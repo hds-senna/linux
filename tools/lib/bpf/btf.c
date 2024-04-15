@@ -84,27 +84,27 @@ struct btf {
 	 *   - for base BTF it's type [1];
 	 *   - for split BTF it's the first non-base BTF type.
 	 */
-	__u32 *type_offs;
-	size_t type_offs_cap;
+	__u32 *type_offs; // 指向指针数组，其中每个元素都是一个指向 BTF 类型偏移量的指针
+	size_t type_offs_cap; // type_offs 的容量（以元素为单位）
 	/* number of types in this BTF instance:
 	 *   - doesn't include special [0] void type;
 	 *   - for split BTF counts number of types added on top of base BTF.
 	 */
-	__u32 nr_types;
+	__u32 nr_types; // .BTF节中type section的元素数量（不包括特殊的 [0] void 类型）。一个元素包含btf_type大小+btf_kind大小
 	/* if not NULL, points to the base BTF on top of which the current
 	 * split BTF is based
 	 */
-	struct btf *base_btf;
+	struct btf *base_btf; 
 	/* BTF type ID of the first type in this BTF instance:
 	 *   - for base BTF it's equal to 1;
 	 *   - for split BTF it's equal to biggest type ID of base BTF plus 1.
 	 */
-	int start_id;
+	int start_id; // BTF中第一个类型的 BTF 类型 ID
 	/* logical string offset of this BTF instance:
 	 *   - for base BTF it's equal to 0;
 	 *   - for split BTF it's equal to total size of base BTF's string section size.
 	 */
-	int start_str_off;
+	int start_str_off; // BTF 中第一个字符串的逻辑字符串偏移量。
 
 	/* only one of strs_data or strs_set can be non-NULL, depending on
 	 * whether BTF is in a modifiable state (strs_set is used) or not
@@ -117,10 +117,10 @@ struct btf {
 	bool strs_deduped;
 
 	/* BTF object FD, if loaded into kernel */
-	int fd;
+	int fd; // 如果 BTF 已加载到内核，则为 BTF 对象的文件描述符；否则为 -1
 
 	/* Pointer size (in bytes) for a target architecture of this BTF */
-	int ptr_sz;
+	int ptr_sz; // BTF 目标架构的指针大小（以字节为单位）。
 };
 
 static inline __u64 ptr_to_u64(const void *ptr)
@@ -137,6 +137,12 @@ static inline __u64 ptr_to_u64(const void *ptr)
  * capacity (in number of elements) is stored in *cap.
  * On success, memory pointer to the beginning of unused memory is returned.
  * On error, NULL is returned.
+ */
+/* 如果当前已使用的元素数量加上要增加的元素数量不超过当前容量，则直接返回未使用内存的起始指针。
+ * 如果请求的内存超过了设置的限制，则返回NULL。
+ * 否则，计算新的容量，确保新的容量至少比当前容量大 25%，但至少为 16 个元素，并且不能超过设定的最大值。
+ * 然后进行内存重新分配，将原有数据拷贝到新的内存区域中。
+ * 最后将新的内存区域的指针存储在data中，更新cap_cnt，并返回未使用内存的起始指针。
  */
 void *libbpf_add_mem(void **data, size_t *cap_cnt, size_t elem_sz,
 		     size_t cur_cnt, size_t max_cnt, size_t add_cnt)
@@ -191,7 +197,7 @@ int libbpf_ensure_mem(void **data, size_t *cap_cnt, size_t elem_sz, size_t need_
 
 static void *btf_add_type_offs_mem(struct btf *btf, size_t add_cnt)
 {
-	return libbpf_add_mem((void **)&btf->type_offs, &btf->type_offs_cap, sizeof(__u32),
+	return libbpf_add_mem((void **)&btf->type_offs, &btf->type_offs_cap, sizeof(__u32), // 
 			      btf->nr_types, BTF_MAX_NR_TYPES, add_cnt);
 }
 
@@ -203,7 +209,7 @@ static int btf_add_type_idx_entry(struct btf *btf, __u32 type_off)
 	if (!p)
 		return -ENOMEM;
 
-	*p = type_off;
+	*p = type_off; // type_off为当前的btf_type的地址到type section起始地址的偏移
 	return 0;
 }
 
@@ -217,7 +223,7 @@ static void btf_bswap_hdr(struct btf_header *h)
 	h->str_len = bswap_32(h->str_len);
 }
 
-static int btf_parse_hdr(struct btf *btf)
+static int btf_parse_hdr(struct btf *btf) // 检查.BTF节header格式是否正确
 {
 	struct btf_header *hdr = btf->hdr;
 	__u32 meta_left;
@@ -246,7 +252,7 @@ static int btf_parse_hdr(struct btf *btf)
 		return -EINVAL;
 	}
 
-	meta_left = btf->raw_size - hdr->hdr_len;
+	meta_left = btf->raw_size - hdr->hdr_len; // 用原始数据区的Size减去头部长度，得到types和strings数据区的Size
 	if (meta_left < (long long)hdr->str_off + hdr->str_len) {
 		pr_debug("Invalid BTF total size: %u\n", btf->raw_size);
 		return -EINVAL;
@@ -410,18 +416,28 @@ static int btf_bswap_type_rest(struct btf_type *t)
 	}
 }
 
-static int btf_parse_type_sec(struct btf *btf)
+static int btf_parse_type_sec(struct btf *btf) // 计算.BTF节中types的数量，并记录每个type section每个元素的偏移，用指针数组来保存每个元素偏移的地址
 {
 	struct btf_header *hdr = btf->hdr;
-	void *next_type = btf->types_data;
-	void *end_type = next_type + hdr->type_len;
+	void *next_type = btf->types_data; // .BTF节type section的起始地址
+	void *end_type = next_type + hdr->type_len; // type section的长度
 	int err, type_size;
 
 	while (next_type + sizeof(struct btf_type) <= end_type) {
 		if (btf->swapped_endian)
 			btf_bswap_type_base(next_type);
-
-		type_size = btf_type_size(next_type);
+		/* 计算types section的每个元素的长度
+    next_type ---> +---------------+ -- <--- types_data   <--- type_offs：指向一个指针数组
+	|	   |   btf_type    | |
+	|	   | - - - - - - - | | --> 此为types section的一个元素, 大小为一个type_size，等于一个btf_type结构体类型加上一个btf类型的大小
+	|	   | btf_KIND_SIZE | |
+	+--------> +---------------+ -- type_off = next_type - types_data
+		   |               | 	
+		   |               |
+                   |               |
+		   +---------------+
+		*/
+		type_size = btf_type_size(next_type); // type_size = sizeof(bpf_type) + sizeof(btf_enum64)
 		if (type_size < 0)
 			return type_size;
 		if (next_type + type_size > end_type) {
@@ -432,12 +448,12 @@ static int btf_parse_type_sec(struct btf *btf)
 		if (btf->swapped_endian && btf_bswap_type_rest(next_type))
 			return -EINVAL;
 
-		err = btf_add_type_idx_entry(btf, next_type - btf->types_data);
+		err = btf_add_type_idx_entry(btf, next_type - btf->types_data); // 计算每个btf_type的偏移，然后保存在type_offs数组中
 		if (err)
 			return err;
 
 		next_type += type_size;
-		btf->nr_types++;
+		btf->nr_types++; // .BTF节中types的数量
 	}
 
 	if (next_type != end_type) {
@@ -629,7 +645,7 @@ struct btf_type *btf_type_by_id(const struct btf *btf, __u32 type_id)
 
 const struct btf_type *btf__type_by_id(const struct btf *btf, __u32 type_id)
 {
-	if (type_id >= btf->start_id + btf->nr_types)
+	if (type_id >= btf->start_id + btf->nr_types) // start_id是.BTF types section中第一个元素的id
 		return errno = EINVAL, NULL;
 	return btf_type_by_id((struct btf *)btf, type_id);
 }
@@ -760,7 +776,7 @@ static bool btf_type_is_void_or_null(const struct btf_type *t)
 
 #define MAX_RESOLVE_DEPTH 32
 
-__s64 btf__resolve_size(const struct btf *btf, __u32 type_id)
+__s64 btf__resolve_size(const struct btf *btf, __u32 type_id)  // 计算type_id表示的类型的大小
 {
 	const struct btf_array *array;
 	const struct btf_type *t;
@@ -768,9 +784,9 @@ __s64 btf__resolve_size(const struct btf *btf, __u32 type_id)
 	__s64 size = -1;
 	int i;
 
-	t = btf__type_by_id(btf, type_id);
-	for (i = 0; i < MAX_RESOLVE_DEPTH && !btf_type_is_void_or_null(t); i++) {
-		switch (btf_kind(t)) {
+	t = btf__type_by_id(btf, type_id); // 找到描述指针指向类型的btf_type
+	for (i = 0; i < MAX_RESOLVE_DEPTH && !btf_type_is_void_or_null(t); i++) { // 通过一个循环来解析类型的嵌套结构，类型的最大嵌套深度为32
+ 		switch (btf_kind(t)) { // 判断指针指向的是哪种类型
 		case BTF_KIND_INT:
 		case BTF_KIND_STRUCT:
 		case BTF_KIND_UNION:
@@ -781,7 +797,7 @@ __s64 btf__resolve_size(const struct btf *btf, __u32 type_id)
 			size = t->size;
 			goto done;
 		case BTF_KIND_PTR:
-			size = btf_ptr_sz(btf);
+			size = btf_ptr_sz(btf); // 当前架构的指针，例如32位系统为4字节，64位系统为8字节
 			goto done;
 		case BTF_KIND_TYPEDEF:
 		case BTF_KIND_VOLATILE:
@@ -803,7 +819,7 @@ __s64 btf__resolve_size(const struct btf *btf, __u32 type_id)
 			return libbpf_err(-EINVAL);
 		}
 
-		t = btf__type_by_id(btf, type_id);
+		t = btf__type_by_id(btf, type_id);  // 根据type_id找到btf_type地址
 	}
 
 done:
@@ -812,7 +828,7 @@ done:
 	if (nelems && size > UINT32_MAX / nelems)
 		return libbpf_err(-E2BIG);
 
-	return nelems * size;
+	return nelems * size; // 如果是数组类型，则nelems为数组元素个数，如果不是数组类型，nelems为1，返回值即为基本类型的大小，即int为4个字节
 }
 
 int btf__align_of(const struct btf *btf, __u32 id)
@@ -911,20 +927,20 @@ __s32 btf__find_by_name(const struct btf *btf, const char *type_name)
 static __s32 btf_find_by_name_kind(const struct btf *btf, int start_id,
 				   const char *type_name, __u32 kind)
 {
-	__u32 i, nr_types = btf__type_cnt(btf);
+	__u32 i, nr_types = btf__type_cnt(btf); // 获取BTF type的数量
 
 	if (kind == BTF_KIND_UNKN || !strcmp(type_name, "void"))
 		return 0;
 
-	for (i = start_id; i < nr_types; i++) {
-		const struct btf_type *t = btf__type_by_id(btf, i);
+	for (i = start_id; i < nr_types; i++) { // 遍历.BTF的type section
+		const struct btf_type *t = btf__type_by_id(btf, i); // 通过btf type id获取btf_type地址
 		const char *name;
 
-		if (btf_kind(t) != kind)
+		if (btf_kind(t) != kind) // 查找BTF_KIND_DATASEC
 			continue;
-		name = btf__name_by_offset(btf, t->name_off);
+		name = btf__name_by_offset(btf, t->name_off); // 获取btf_type的名字
 		if (name && !strcmp(type_name, name))
-			return i;
+			return i;  // 返回btf type的id
 	}
 
 	return libbpf_err(-ENOENT);
@@ -1032,8 +1048,8 @@ static struct btf *btf_new(const void *data, __u32 size, struct btf *base_btf)
 	if (!btf)
 		return ERR_PTR(-ENOMEM);
 
-	btf->nr_types = 0;
-	btf->start_id = 1;
+	btf->nr_types = 0; // nr_types初始化为0
+	btf->start_id = 1; // 第一个BTF类型的id，类型id“0”保留给“void”类型
 	btf->start_str_off = 0;
 	btf->fd = -1;
 
@@ -1043,24 +1059,24 @@ static struct btf *btf_new(const void *data, __u32 size, struct btf *base_btf)
 		btf->start_str_off = base_btf->hdr->str_len;
 	}
 
-	btf->raw_data = malloc(size);
+	btf->raw_data = malloc(size); // 将.BTF节的原始数据拷贝到raw_data处
 	if (!btf->raw_data) {
 		err = -ENOMEM;
 		goto done;
 	}
 	memcpy(btf->raw_data, data, size);
-	btf->raw_size = size;
+	btf->raw_size = size; // 原始的.BTF节的大小
 
-	btf->hdr = btf->raw_data;
-	err = btf_parse_hdr(btf);
+	btf->hdr = btf->raw_data; // 将header指针指向保存原始数据的地址
+	err = btf_parse_hdr(btf); // 检查.BTF节header格式是否正确
 	if (err)
 		goto done;
 
-	btf->strs_data = btf->raw_data + btf->hdr->hdr_len + btf->hdr->str_off;
-	btf->types_data = btf->raw_data + btf->hdr->hdr_len + btf->hdr->type_off;
+	btf->strs_data = btf->raw_data + btf->hdr->hdr_len + btf->hdr->str_off; // .BTF节字符串区的起始地址
+	btf->types_data = btf->raw_data + btf->hdr->hdr_len + btf->hdr->type_off; // .BTF节类型区的起始地址
 
-	err = btf_parse_str_sec(btf);
-	err = err ?: btf_parse_type_sec(btf);
+	err = btf_parse_str_sec(btf); // 检查.BTF string section的数据区长度是否正确
+	err = err ?: btf_parse_type_sec(btf); // 计算btf->nr_types的值，初始化btf->type_offs数组，数组的元素值为每个type section元素的起始地址到type section起始的偏移
 	err = err ?: btf_sanity_check(btf);
 	if (err)
 		goto done;
@@ -2665,7 +2681,7 @@ int btf__add_var(struct btf *btf, const char *name, int linkage, int type_id)
 	if (btf_ensure_modifiable(btf))
 		return libbpf_err(-ENOMEM);
 
-	sz = sizeof(struct btf_type) + sizeof(struct btf_var);
+	sz = sizeof(struct btf_type) + sizeof(struct btf_var);  // 新增的type section元素的size
 	t = btf_add_type_mem(btf, sz);
 	if (!t)
 		return libbpf_err(-ENOMEM);
@@ -2681,7 +2697,7 @@ int btf__add_var(struct btf *btf, const char *name, int linkage, int type_id)
 	v = btf_var(t);
 	v->linkage = linkage;
 
-	return btf_commit_type(btf, sz);
+	return btf_commit_type(btf, sz);   // 返回新增的btf_type id
 }
 
 /*
@@ -2819,7 +2835,7 @@ struct btf_ext_sec_setup_param {
 	__u32 off;
 	__u32 len;
 	__u32 min_rec_size;
-	struct btf_ext_info *ext_info;
+	struct btf_ext_info *ext_info;  // 指向.BTF.ext每个数据项描述符
 	const char *desc;
 };
 
@@ -2953,7 +2969,7 @@ static int btf_ext_setup_core_relos(struct btf_ext *btf_ext)
 	return btf_ext_setup_info(btf_ext, &param);
 }
 
-static int btf_ext_parse_hdr(__u8 *data, __u32 data_size)
+static int btf_ext_parse_hdr(__u8 *data, __u32 data_size) // 检查.BTF.ext节数据格式是否正确
 {
 	const struct btf_ext_header *hdr = (struct btf_ext_header *)data;
 
@@ -3000,7 +3016,7 @@ void btf_ext__free(struct btf_ext *btf_ext)
 	free(btf_ext);
 }
 
-struct btf_ext *btf_ext__new(const __u8 *data, __u32 size)
+struct btf_ext *btf_ext__new(const __u8 *data, __u32 size) // 解析BTF扩展数据中的信息，并将其填充到相应的数据结构中
 {
 	struct btf_ext *btf_ext;
 	int err;
@@ -3015,9 +3031,9 @@ struct btf_ext *btf_ext__new(const __u8 *data, __u32 size)
 		err = -ENOMEM;
 		goto done;
 	}
-	memcpy(btf_ext->data, data, size);
+	memcpy(btf_ext->data, data, size); // 拷贝.BTF.ext的数据
 
-	err = btf_ext_parse_hdr(btf_ext->data, size);
+	err = btf_ext_parse_hdr(btf_ext->data, size);  // 检查.BTF.ext节数据格式是否正确
 	if (err)
 		goto done;
 
@@ -3026,18 +3042,18 @@ struct btf_ext *btf_ext__new(const __u8 *data, __u32 size)
 		goto done;
 	}
 
-	err = btf_ext_setup_func_info(btf_ext);
+	err = btf_ext_setup_func_info(btf_ext); // 拷贝.BTF.ext节的func_info数据
 	if (err)
 		goto done;
 
-	err = btf_ext_setup_line_info(btf_ext);
+	err = btf_ext_setup_line_info(btf_ext); // 拷贝.BTF.ext节的line_info数据
 	if (err)
 		goto done;
 
-	if (btf_ext->hdr->hdr_len < offsetofend(struct btf_ext_header, core_relo_len))
-		goto done; /* skip core relos parsing */
+	if (btf_ext->hdr->hdr_len < offsetofend(struct btf_ext_header, core_relo_len)) // CO-RE relocations不是.BTF.ext必须包含，如果没有直接跳过
+		goto done; /* skip core relos parsing */ 
 
-	err = btf_ext_setup_core_relos(btf_ext);
+	err = btf_ext_setup_core_relos(btf_ext);// 拷贝.BTF.ext节的core_relo_info数据
 	if (err)
 		goto done;
 

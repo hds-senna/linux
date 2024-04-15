@@ -14,7 +14,7 @@ struct {
 
 #include "bpf_arena_htab.h"
 
-void __arena *htab_for_user;
+void __arena *htab_for_user; // LLVM自动将__arena变量放入". arena.1"ELF部分。“. arena.1”部分中的所有全局变量都可以从用户空间访问
 bool skip = false;
 
 int zero = 0;

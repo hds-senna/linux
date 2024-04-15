@@ -1009,7 +1009,7 @@ enum bpf_map_type {
 	BPF_MAP_TYPE_BLOOM_FILTER,
 	BPF_MAP_TYPE_USER_RINGBUF,
 	BPF_MAP_TYPE_CGRP_STORAGE,
-	BPF_MAP_TYPE_ARENA,
+	BPF_MAP_TYPE_ARENA, // 用于多个bpf程序共享数据。BPF_MAP_TYPE_ARENA允许BPF程序在内核中创建一个共享的内存区域，可以在用户态和内核态之间进行直接的读写操作。这个共享的内存区域可以被多个BPF程序同时访问，使得它们能够共享数据，避免了复制数据的额外开销。
 	__MAX_BPF_MAP_TYPE
 };
 

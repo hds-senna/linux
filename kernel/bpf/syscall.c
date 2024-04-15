@@ -5589,6 +5589,7 @@ static int token_create(union bpf_attr *attr)
 	return bpf_token_create(attr);
 }
 
+// cmd就是bpf的操作类型
 static int __sys_bpf(int cmd, bpfptr_t uattr, unsigned int size)
 {
 	union bpf_attr attr;

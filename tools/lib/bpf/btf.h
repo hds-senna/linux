@@ -559,7 +559,7 @@ static inline struct btf_var *btf_var(const struct btf_type *t)
 static inline struct btf_var_secinfo *
 btf_var_secinfos(const struct btf_type *t)
 {
-	return (struct btf_var_secinfo *)(t + 1);
+	return (struct btf_var_secinfo *)(t + 1); // btf_type和btf_var_secinfo结构体的大小是一样的，所以这里可以用btf_type的指针做偏移获取btf_var_secinfo的地址
 }
 
 struct btf_decl_tag;
